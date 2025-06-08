@@ -1,3 +1,5 @@
+import { checkForUpdates } from './update.js';
+
 // 使用 jQuery 确保在 DOM 加载完毕后执行
 jQuery(async () => {
     // 定义扩展名称和路径
@@ -352,31 +354,6 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
         }
     }
     
-    // --- Update Checker ---
-    async function check_for_update() {
-        try {
-            const manifestResponse = await fetch(`/${extensionFolderPath}/manifest.json?t=${Date.now()}`);
-            if (!manifestResponse.ok) return;
-            const manifest = await manifestResponse.json();
-            const homePage = manifest.homePage;
-            const currentVersion = manifest.version;
-
-            if (!homePage || homePage.trim() === "") return;
-
-            const repoUrl = new URL(homePage);
-            const rawUrl = `https://raw.githubusercontent.com${repoUrl.pathname}/main/package.json`;
-            const response = await fetch(rawUrl);
-            if (!response.ok) return;
-            const remotePackage = await response.json();
-            const latestVersion = remotePackage.version;
-
-            if (latestVersion > currentVersion) {
-                toastr.info(`发现新版本: ${latestVersion}！请通过启动器或Git更新。`, '任务系统更新', {timeOut: 0, extendedTimeOut: 0, closeButton: true});
-            }
-        } catch (error) {
-            console.error('[QuestSystem] Update check failed:', error);
-        }
-    }
     
     // --- UI Functions ---
     function refreshQuestPopupUI() {
@@ -599,7 +576,6 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
         if (!checkAPIs()) return;
 
         await loadAllTaskData();
-        check_for_update();
 
         // Create the button
         const buttonId = 'quest-log-entry-button';
@@ -703,6 +679,10 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             extensionSettings.find('#quest-edit-prompt-button').on('click', function() {
                 showPromptEditorPopup();
             });
+            
+            // 4. Bind update button and run initial check
+            extensionSettings.find('#quest-check-update-button').on('click', () => checkForUpdates(true));
+            checkForUpdates(false); // Initial silent check
 
             // Make sure the drawer is closed by default
             extensionSettings.find('.inline-drawer').removeClass('open');
