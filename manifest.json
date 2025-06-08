@@ -5,5 +5,7 @@
     "description": "一个集成的任务日志系统，允许AI动态生成任务、判断任务完成情况，并将入口点添加到扩展菜单。",
     "loading_order": 1002,
     "js": "index.js",
-    "css": "style.css"
+    "css": "style.css",
+    "homePage": "https://github.com/1830488003/quest-system-extension",
+    "auto_update": true
 }

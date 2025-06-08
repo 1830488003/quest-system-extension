@@ -318,6 +318,56 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
         }
     }
     
+    // --- Update Checker ---
+    async function check_for_update() {
+        try {
+            // Fetch our own manifest to get homepage and version
+            const manifestResponse = await fetch(`/${extensionFolderPath}/manifest.json?t=${Date.now()}`); // bust cache
+            if (!manifestResponse.ok) {
+                console.warn('[QuestSystem] Could not fetch local manifest for update check.');
+                return;
+            }
+            const manifest = await manifestResponse.json();
+
+            const homePage = manifest.homePage;
+            const currentVersion = manifest.version;
+
+            if (!homePage || homePage.trim() === "") {
+                console.log('[QuestSystem] homePage not set in manifest.json, skipping update check.');
+                return;
+            }
+
+            // Construct the raw URL for package.json on the main branch
+            const repoUrl = new URL(homePage);
+            const rawUrl = `https://raw.githubusercontent.com${repoUrl.pathname}/main/package.json`;
+
+            console.log(`[QuestSystem] Checking for updates from ${rawUrl}`);
+
+            const response = await fetch(rawUrl);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch remote package.json: ${response.statusText}`);
+            }
+            const remotePackage = await response.json();
+            const latestVersion = remotePackage.version;
+
+            console.log(`[QuestSystem] Current version: ${currentVersion}, Latest version: ${latestVersion}`);
+
+            // Using a simple string comparison, assuming SemVer-like strings.
+            if (latestVersion > currentVersion) {
+                console.log('[QuestSystem] New version found!');
+                const updateMessage = `发现新版本: ${latestVersion}！请通过启动器或Git更新。`;
+                
+                // Show a toast notification to alert the user immediately.
+                toastr.info(updateMessage, '任务系统更新', {timeOut: 0, extendedTimeOut: 0, closeButton: true});
+
+            } else {
+                console.log('[QuestSystem] Extension is up to date.');
+            }
+        } catch (error) {
+            console.error('[QuestSystem] Update check failed:', error);
+        }
+    }
+    
     // --- UI Functions ---
 
     /**
@@ -509,6 +559,9 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
 
         // Load tasks once on startup to avoid logging on every click
         await loadPlayerTasks();
+
+        // Check for updates
+        check_for_update(); // Intentionally not awaited
 
         // Create a button in the UI as the entry point
         const buttonId = 'quest-log-entry-button';
