@@ -8,6 +8,7 @@ jQuery(async () => {
     const QUEST_POPUP_ID = 'th-quest-system-popup-v049'; // Use a versioned ID
     const PLAYER_QUEST_VARIABLE_KEY = 'player_active_quests_log_v2';
     const OLD_PLAYER_QUEST_VARIABLE_KEY = 'player_active_quests_log'; // For migration
+    const AI_DEFINED_TASKS_KEY = 'ai_defined_tasks_log_v1'; // For persisting available AI tasks
     const PROMPT_EDITOR_POPUP_ID = 'th-prompt-editor-popup-v049';
 
     // --- Prompt Templates ---
@@ -60,7 +61,7 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
 `;
 
     // --- Global State ---
-    let definedTasks = []; // Holds AI-generated tasks, not persisted across sessions
+    let definedTasks = []; // Holds AI-generated tasks, now persisted across sessions
     let playerTasksStatus = {}; // Persisted in chat variables
     let currentUserModifiedEditablePromptCore = DEFAULT_EDITABLE_PROMPT_CORE_CN;
 
@@ -108,66 +109,79 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
 
     // --- Data Management ---
 
-    async function loadPlayerTasks() {
+    async function loadAllTaskData() {
         if (!checkAPIs()) return;
         
         try {
             const variables = await TavernHelper.getVariables({ type: 'chat' });
-            let rawData = variables ? variables[PLAYER_QUEST_VARIABLE_KEY] : null;
-            let oldRawData = variables ? variables[OLD_PLAYER_QUEST_VARIABLE_KEY] : null;
+            
+            // 1. Load Player's Task Status (with migration from v1)
+            let rawPlayerTasks = variables ? variables[PLAYER_QUEST_VARIABLE_KEY] : null;
+            let oldRawPlayerTasks = variables ? variables[OLD_PLAYER_QUEST_VARIABLE_KEY] : null;
 
-            if (rawData) {
-                // Standard path: data exists under the new key.
+            if (rawPlayerTasks) {
                 try {
-                    playerTasksStatus = JSON.parse(rawData);
-                } catch (parseError) {
-                    console.warn('[QuestSystem] Failed to parse player task data. It might be corrupted.', parseError);
-                    if (typeof rawData === 'string' && rawData.includes('[object Object]')) {
-                        console.log('[QuestSystem] Detected v2 corrupted task data. Resetting.');
-                        toastr.warning('检测到损坏的任务数据，已自动重置。');
-                        playerTasksStatus = {};
-                        await savePlayerTasks(); 
-                    } else {
-                        playerTasksStatus = {};
-                    }
+                    playerTasksStatus = JSON.parse(rawPlayerTasks);
+                } catch (e) {
+                    console.warn('[QuestSystem] Failed to parse player tasks. Resetting.', e);
+                    playerTasksStatus = {};
                 }
-            } else if (oldRawData) {
-                // Migration path: old data found, new data missing.
-                console.log('[QuestSystem] Old task data found. Migrating to new format...');
-                toastr.info('检测到旧版任务数据，正在迁移...');
+            } else if (oldRawPlayerTasks) {
+                console.log('[QuestSystem] Old player task data found. Migrating...');
+                toastr.info('检测到旧版已接受任务，正在迁移...');
                 try {
-                    playerTasksStatus = JSON.parse(oldRawData);
-                    // Immediately save under the new key and clear the old one.
-                    await savePlayerTasks(); // This saves with the new key.
-                    await TavernHelper.insertOrAssignVariables({ [OLD_PLAYER_QUEST_VARIABLE_KEY]: null }, { type: 'chat' });
-                    console.log('[QuestSystem] Migration successful. Old data key cleared.');
-                    toastr.success('任务数据迁移成功！');
-                } catch (migrationParseError) {
-                    console.error('[QuestSystem] Failed to parse old task data during migration.', migrationParseError);
-                    toastr.error('迁移旧任务数据失败，数据可能已损坏。');
+                    playerTasksStatus = JSON.parse(oldRawPlayerTasks);
+                    // Don't save yet, will be saved monolithically later
+                } catch (e) {
                     playerTasksStatus = {};
                 }
             } else {
-                // No data exists at all.
                 playerTasksStatus = {};
             }
+
+            // 2. Load Defined AI Tasks
+            let rawDefinedTasks = variables ? variables[AI_DEFINED_TASKS_KEY] : null;
+            if (rawDefinedTasks) {
+                try {
+                    definedTasks = JSON.parse(rawDefinedTasks);
+                } catch (e) {
+                    console.warn('[QuestSystem] Failed to parse defined AI tasks. Resetting.', e);
+                    definedTasks = [];
+                }
+            } else {
+                definedTasks = [];
+            }
+            
+            // 3. If migration happened, save everything and clear old key
+            if (oldRawPlayerTasks) {
+                await saveAllTaskData(false); // Save without refreshing UI yet
+                await TavernHelper.insertOrAssignVariables({ [OLD_PLAYER_QUEST_VARIABLE_KEY]: null }, { type: 'chat' });
+                console.log('[QuestSystem] Migration successful. Old data key cleared.');
+                toastr.success('已接受的任务迁移成功！');
+            }
+
         } catch (error) {
             console.error('[QuestSystem] Critical error during task loading:', error);
             toastr.error(`加载任务数据时发生严重错误: ${error.message}`);
             playerTasksStatus = {};
+            definedTasks = [];
         }
     }
 
-    async function savePlayerTasks() {
+    async function saveAllTaskData(refreshUI = true) {
         if (!checkAPIs()) return;
         try {
-            // Persist the player's task status
-            await TavernHelper.insertOrAssignVariables({ [PLAYER_QUEST_VARIABLE_KEY]: JSON.stringify(playerTasksStatus) }, { type: 'chat' });
-            // After any save, refresh the UI to ensure consistency
-            refreshQuestPopupUI();
+            await TavernHelper.insertOrAssignVariables({ 
+                [PLAYER_QUEST_VARIABLE_KEY]: JSON.stringify(playerTasksStatus),
+                [AI_DEFINED_TASKS_KEY]: JSON.stringify(definedTasks)
+            }, { type: 'chat' });
+            
+            if (refreshUI) {
+                refreshQuestPopupUI();
+            }
         } catch (error) {
-            console.error('[QuestSystem] Error saving tasks:', error);
-            toastr.error(`保存任务数据出错: ${error.message}`);
+            console.error('[QuestSystem] Error saving all task data:', error);
+            toastr.error(`保存所有任务数据时出错: ${error.message}`);
         }
     }
 
@@ -175,8 +189,11 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
 
     async function acceptTask(taskId) {
         if (!checkAPIs()) return;
-        const taskDef = definedTasks.find(t => t.id === taskId);
-        if (!taskDef) { toastr.error(`任务 ${taskId} 未定义！`); return; }
+        const taskIndex = definedTasks.findIndex(t => t.id === taskId);
+        if (taskIndex === -1) { toastr.error(`任务 ${taskId} 未定义！`); return; }
+        
+        // 从 definedTasks 中移动到 playerTasksStatus
+        const taskDef = definedTasks.splice(taskIndex, 1)[0]; 
         
         playerTasksStatus[taskId] = {
             status: 'active',
@@ -186,7 +203,8 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             rewardMessage: taskDef.rewardMessage,
             isAIGenerated: taskDef.isAIGenerated || false
         };
-        await savePlayerTasks(); // This saves and then triggers a UI refresh
+        
+        await saveAllTaskData(); // 保存所有数据并刷新UI
         toastr.success(`已接受任务: ${taskDef.title}`);
         await injectSystemMessage(`${SillyTavern.name1 || '玩家'} 已接受任务: "${taskDef.title}"。\n任务描述: ${taskDef.description}`);
     }
@@ -199,17 +217,24 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             return;
         }
         
-        const abandonedTaskTitle = taskInPlayerLog.title;
+        const abandonedTask = {
+            id: taskId,
+            title: taskInPlayerLog.title,
+            description: taskInPlayerLog.description,
+            rewardMessage: taskInPlayerLog.rewardMessage,
+            isAIGenerated: taskInPlayerLog.isAIGenerated || false
+        };
+        
         delete playerTasksStatus[taskId];
         
-        // Remove from the dynamic list of AI-generated tasks to make it available again
-        // Note: this assumes if you abandon, you might want to see it again.
-        // If abandoned AI tasks should disappear forever, a different logic is needed.
-        // For now, let's keep it simple: abandoning removes from active, but not from `definedTasks`.
+        // 如果是AI生成的任务，并且在可接任务列表里不存在，则重新加回去
+        if (abandonedTask.isAIGenerated && !definedTasks.some(t => t.id === taskId)) {
+            definedTasks.push(abandonedTask);
+        }
         
-        await injectSystemMessage(`${SillyTavern.name1 || '玩家'} 已放弃任务: "${abandonedTaskTitle}".`);
-        await savePlayerTasks(); // This saves and then triggers a UI refresh
-        toastr.info(`任务已放弃: ${abandonedTaskTitle}`);
+        await injectSystemMessage(`${SillyTavern.name1 || '玩家'} 已放弃任务: "${abandonedTask.title}".`);
+        await saveAllTaskData(); // 保存所有数据并刷新UI
+        toastr.info(`任务已放弃: ${abandonedTask.title}`);
     }
 
     async function completeTask(taskId) {
@@ -243,7 +268,7 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
                 const reward = taskData.rewardMessage || "无特定奖励";
                 await injectSystemMessage(`${SillyTavern.name1 || '玩家'} 已完成任务: "${taskData.title}"！获得奖励: ${reward}`);
                 toastr.success(`任务完成: ${taskData.title}`);
-                await savePlayerTasks(); // This saves and then triggers a UI refresh
+                await saveAllTaskData(); // 保存所有数据并刷新UI
             } else if (aiResponse.includes("STATUS:未完成")) {
                 const condition = aiResponse.match(/CONDITION:\[(.*?)]/)?.[1] || "未知";
                 const suggestion = aiResponse.match(/SUGGESTION:\[(.*?)]/)?.[1] || "请继续努力。";
@@ -315,9 +340,8 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
 
             if (tasksGeneratedCount > 0) {
                 toastr.success(`AI成功生成了 ${tasksGeneratedCount} 个新任务!`);
-                // **THE FIX**: Directly refresh the UI instead of saving.
-                // Nothing is saved to player logs until a task is accepted.
-                refreshQuestPopupUI();
+                // 保存新生成的任务列表
+                await saveAllTaskData();
             } else {
                 toastr.error("AI返回的任务格式不正确，无法解析。");
             }
@@ -603,9 +627,9 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
         }
 
         // Load tasks once on startup to avoid logging on every click
-        console.log('[QuestSystem] Loading player tasks...');
-        await loadPlayerTasks();
-        console.log('[QuestSystem] Player tasks loaded.');
+        console.log('[QuestSystem] Loading all task data...');
+        await loadAllTaskData();
+        console.log('[QuestSystem] All task data loaded.');
 
         // Check for updates
         console.log('[QuestSystem] Checking for updates...');

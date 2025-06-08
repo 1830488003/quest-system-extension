@@ -37,7 +37,7 @@
     box-shadow: var(--box-shadow);
     border: 1px solid var(--border-color);
     
-    overflow: hidden; /* Hide overflow on the main container */
+    /* overflow: hidden; */ /* This was preventing the body from scrolling, so it's removed. */
 }
 
 .quest-popup-close-button {
