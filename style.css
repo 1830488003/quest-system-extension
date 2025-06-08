@@ -38,7 +38,6 @@
     border: 1px solid var(--border-color);
     
     overflow: hidden; /* Hide overflow on the main container */
-    position: relative; /* For positioning the close button */
 }
 
 .quest-popup-close-button {

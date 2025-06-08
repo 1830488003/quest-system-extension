@@ -7,6 +7,7 @@ jQuery(async () => {
     // --- Configuration & Constants ---
     const QUEST_POPUP_ID = 'th-quest-system-popup-v049'; // Use a versioned ID
     const PLAYER_QUEST_VARIABLE_KEY = 'player_active_quests_log_v2';
+    const OLD_PLAYER_QUEST_VARIABLE_KEY = 'player_active_quests_log'; // For migration
     const PROMPT_EDITOR_POPUP_ID = 'th-prompt-editor-popup-v049';
 
     // --- Prompt Templates ---
@@ -109,31 +110,45 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
 
     async function loadPlayerTasks() {
         if (!checkAPIs()) return;
-        let rawData;
+        
         try {
             const variables = await TavernHelper.getVariables({ type: 'chat' });
-            rawData = variables ? variables[PLAYER_QUEST_VARIABLE_KEY] : null;
+            let rawData = variables ? variables[PLAYER_QUEST_VARIABLE_KEY] : null;
+            let oldRawData = variables ? variables[OLD_PLAYER_QUEST_VARIABLE_KEY] : null;
 
             if (rawData) {
-                // This is the core of the fix. We wrap the parsing in a try-catch.
+                // Standard path: data exists under the new key.
                 try {
                     playerTasksStatus = JSON.parse(rawData);
                 } catch (parseError) {
                     console.warn('[QuestSystem] Failed to parse player task data. It might be corrupted.', parseError);
-                    // Check if it's the specific known corrupted data
                     if (typeof rawData === 'string' && rawData.includes('[object Object]')) {
-                        console.log('[QuestSystem] Detected corrupted task data. Resetting to an empty log.');
+                        console.log('[QuestSystem] Detected v2 corrupted task data. Resetting.');
                         toastr.warning('检测到损坏的任务数据，已自动重置。');
                         playerTasksStatus = {};
-                        // Immediately save the corrected (empty) state to prevent this error on next load.
                         await savePlayerTasks(); 
                     } else {
-                        // For other unexpected parsing errors, we just reset to be safe.
                         playerTasksStatus = {};
                     }
                 }
+            } else if (oldRawData) {
+                // Migration path: old data found, new data missing.
+                console.log('[QuestSystem] Old task data found. Migrating to new format...');
+                toastr.info('检测到旧版任务数据，正在迁移...');
+                try {
+                    playerTasksStatus = JSON.parse(oldRawData);
+                    // Immediately save under the new key and clear the old one.
+                    await savePlayerTasks(); // This saves with the new key.
+                    await TavernHelper.insertOrAssignVariables({ [OLD_PLAYER_QUEST_VARIABLE_KEY]: null }, { type: 'chat' });
+                    console.log('[QuestSystem] Migration successful. Old data key cleared.');
+                    toastr.success('任务数据迁移成功！');
+                } catch (migrationParseError) {
+                    console.error('[QuestSystem] Failed to parse old task data during migration.', migrationParseError);
+                    toastr.error('迁移旧任务数据失败，数据可能已损坏。');
+                    playerTasksStatus = {};
+                }
             } else {
-                // If there's no data, initialize with an empty object.
+                // No data exists at all.
                 playerTasksStatus = {};
             }
         } catch (error) {
@@ -523,55 +538,93 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
     }
     
     function closeQuestLogPopup() {
+        console.log('[QuestSystem] closeQuestLogPopup called.');
         const popup = $(`#${QUEST_POPUP_ID}`);
         if (popup.length) {
+            console.log('[QuestSystem] Removing popup element.');
             popup.remove();
         }
     }
 
+    /**
+     * @brief Toggles the visibility of the quest popup.
+     * This function checks if the popup exists. If it does, it closes it.
+     * If it doesn't, it calls the function to create and show it.
+     * This prevents the popup from being re-rendered if it's already open.
+     */
+    function toggleQuestLogPopup() {
+        console.log('[QuestSystem] toggleQuestLogPopup called.');
+        const questPopup = $(`#${QUEST_POPUP_ID}`);
+        if (questPopup.length > 0) {
+            console.log('[QuestSystem] Popup exists, calling closeQuestLogPopup.');
+            closeQuestLogPopup();
+        } else {
+            console.log('[QuestSystem] Popup does not exist, calling showQuestLogPopup.');
+            // No need to await here, as it's a fire-and-forget UI action.
+            showQuestLogPopup();
+        }
+    }
+
     async function showQuestLogPopup() {
-        if (!checkAPIs()) return;
+        console.log('[QuestSystem] showQuestLogPopup called.');
+        if (!checkAPIs()) {
+            console.error('[QuestSystem] checkAPIs() failed in showQuestLogPopup.');
+            return;
+        }
         
-        // Close any existing popup first
+        // Defensively close any existing popup to ensure a clean state.
+        console.log('[QuestSystem] Calling closeQuestLogPopup from showQuestLogPopup to ensure clean state.');
         closeQuestLogPopup();
 
-        // Tasks are now loaded at init, so we just create the HTML
+        // The task data is pre-loaded at initialization.
+        // We intentionally DO NOT call loadPlayerTasks() here to prevent
+        // the "get chat variables" log from appearing on every click.
+        console.log('[QuestSystem] Creating popup HTML.');
         const popupContentHtml = createQuestPopupHtml();
         
-        // Inject directly into the body instead of using the generic popup
+        console.log('[QuestSystem] Appending popup HTML to body.');
         $('body').append(popupContentHtml);
 
-        // Bind events to the newly created popup
         const popupInstance = $(`#${QUEST_POPUP_ID}`);
         if (popupInstance.length) {
+            console.log('[QuestSystem] Popup instance found, binding events.');
             bindQuestPopupEvents(popupInstance);
         } else {
-            console.error("[QuestSystem] Could not find quest popup instance to bind events.");
+            console.error("[QuestSystem] Could not find quest popup instance to bind events after appending.");
         }
     }
     
     // --- Initialization ---
     async function initialize() {
+        console.log('[QuestSystem] Initializing...');
         if (!checkAPIs()) {
             console.error("[QuestSystem] Initialization failed due to missing APIs.");
             return;
         }
 
         // Load tasks once on startup to avoid logging on every click
+        console.log('[QuestSystem] Loading player tasks...');
         await loadPlayerTasks();
+        console.log('[QuestSystem] Player tasks loaded.');
 
         // Check for updates
+        console.log('[QuestSystem] Checking for updates...');
         check_for_update(); // Intentionally not awaited
 
         // Create a button in the UI as the entry point
         const buttonId = 'quest-log-entry-button';
         if ($(`#${buttonId}`).length === 0) {
+            console.log('[QuestSystem] Creating entry button.');
             // Style is now controlled entirely by style.css
             const buttonHtml = `<div id="${buttonId}" title="任务日志" class="fa-solid fa-scroll"></div>`;
             $('body').append(buttonHtml);
-            $(`#${buttonId}`).on('click', showQuestLogPopup);
+            // Bind the new toggle function to the button's click event.
+            // This ensures the popup opens and closes correctly on clicks.
+            console.log('[QuestSystem] Binding click event to entry button.');
+            $(`#${buttonId}`).on('click', toggleQuestLogPopup);
         }
         toastr.success("任务系统(完整版)已加载！");
+        console.log('[QuestSystem] Initialization complete.');
     }
 
     // Load settings from SillyTavern
