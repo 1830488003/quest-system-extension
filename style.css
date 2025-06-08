@@ -198,6 +198,7 @@
 @media (min-width: 768px) {
     .quest-popup-container {
         /* Restore centered-transform for desktop */
+        top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
         width: 60vw; /* You can use a more specific width for desktop */

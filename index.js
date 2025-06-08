@@ -541,21 +541,23 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
     
     function makeButtonDraggable(button) {
         let isDragging = false;
+        let wasDragged = false;
         let offset = { x: 0, y: 0 };
 
         button.on('mousedown', function(e) {
-            // Prevent dragging when clicking on scrollbars or other elements
             if (e.target !== button[0]) return;
             isDragging = true;
+            wasDragged = false; // Reset drag flag on new mousedown
             offset.x = e.clientX - button.offset().left;
             offset.y = e.clientY - button.offset().top;
             button.css('cursor', 'grabbing');
-            // Prevent text selection while dragging
             $('body').css('user-select', 'none');
         });
 
         $(document).on('mousemove', function(e) {
             if (!isDragging) return;
+            wasDragged = true; // It's a drag if the mouse moves while down
+            
             let newX = e.clientX - offset.x;
             let newY = e.clientY - offset.y;
             
@@ -563,7 +565,7 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             newX = Math.max(0, Math.min(newX, window.innerWidth - button.outerWidth()));
             newY = Math.max(0, Math.min(newY, window.innerHeight - button.outerHeight()));
 
-            button.css({ top: newY + 'px', left: newX + 'px' });
+            button.css({ top: newY + 'px', left: newX + 'px', right: '', bottom: '' });
         });
 
         $(document).on('mouseup', function() {
@@ -575,17 +577,31 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             localStorage.setItem(BUTTON_POSITION_KEY, JSON.stringify({ top: button.css('top'), left: button.css('left') }));
         });
         
-        // Prevent click event from firing after a drag
+        // This is the click handler that decides whether to open the popup.
         button.on('click', function(e) {
-            if (isDragging) {
-                e.stopImmediatePropagation();
+            // If the button was dragged, don't open the popup.
+            if (wasDragged) {
+                e.stopPropagation();
+                return;
             }
+            // Otherwise, it's a genuine click, so toggle the popup.
+            toggleQuestLogPopup();
         });
     }
 
     // --- Initialization ---
     async function initialize() {
         console.log('[QuestSystem] Initializing...');
+
+        // --- Self-Correction: Force remove potentially bugged visibility setting from old versions ---
+        // This ensures the button always appears on first load after an update, preventing persistent invisibility.
+        try {
+            localStorage.removeItem(BUTTON_VISIBLE_KEY);
+        } catch (e) {
+            console.error('[QuestSystem] Failed to remove stale visibility key, this is not critical.', e);
+        }
+        // --- End of Self-Correction ---
+
         if (!checkAPIs()) return;
 
         await loadAllTaskData();
@@ -613,8 +629,56 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             const isVisible = localStorage.getItem(BUTTON_VISIBLE_KEY) !== 'false';
             questButton.toggle(isVisible);
             
-            // Bind the popup toggle to the button's click event.
-            questButton.on('click', toggleQuestLogPopup);
+            // The click event is now handled inside makeButtonDraggable to distinguish between click and drag.
+
+            // Add a resize listener to keep the button in view after it has been dragged
+            let resizeTimeout;
+            $(window).on('resize.questSystem', function() {
+                // Only run this logic if the position has been explicitly set by the user (dragged)
+                if (!localStorage.getItem(BUTTON_POSITION_KEY)) return;
+
+                const button = $(`#${'quest-log-entry-button'}`);
+                if (!button.length || !button.is(':visible')) return;
+                
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(() => {
+                    const rect = button[0].getBoundingClientRect();
+                    const winWidth = window.innerWidth;
+                    const winHeight = window.innerHeight;
+
+                    let newX = rect.left;
+                    let newY = rect.top;
+                    
+                    let needsUpdate = false;
+
+                    // Check horizontal bounds
+                    if (rect.right > winWidth) {
+                        newX = winWidth - rect.width;
+                        needsUpdate = true;
+                    } else if (rect.left < 0) {
+                        newX = 0;
+                        needsUpdate = true;
+                    }
+
+                    // Check vertical bounds
+                    if (rect.bottom > winHeight) {
+                        newY = winHeight - rect.height;
+                        needsUpdate = true;
+                    } else if (rect.top < 0) {
+                        newY = 0;
+                        needsUpdate = true;
+                    }
+
+                    if (needsUpdate) {
+                        // Position is relative to the viewport, which is what we need for 'fixed' position
+                        const newPos = { top: newY + 'px', left: newX + 'px' };
+                        button.css(newPos);
+                        // Also remove 'right' and 'bottom' properties if they exist from default styling
+                        button.css({right: '', bottom: ''});
+                        localStorage.setItem(BUTTON_POSITION_KEY, JSON.stringify(newPos));
+                    }
+                }, 50); // A small delay is fine
+            });
         }
         
         // Load settings and bind events
@@ -641,5 +705,20 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
         console.log('[QuestSystem] Initialization complete.');
     }
 
-    initialize();
+    /**
+     * Waits for all critical SillyTavern APIs to be available before initializing the extension.
+     * This prevents race conditions and errors during page load.
+     */
+    function runWhenReady() {
+        if (typeof jQuery !== 'undefined' && typeof SillyTavern !== 'undefined' && typeof TavernHelper !== 'undefined' && typeof toastr !== 'undefined' && SillyTavern.getContext) {
+            console.log('[QuestSystem] All APIs are ready. Initializing...');
+            initialize();
+        } else {
+            // APIs are not ready yet, check again in 100ms.
+            setTimeout(runWhenReady, 100);
+        }
+    }
+
+    // Start the process.
+    runWhenReady();
 });
