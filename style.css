@@ -38,6 +38,28 @@
     border: 1px solid var(--border-color);
     
     overflow: hidden; /* Hide overflow on the main container */
+    position: relative; /* For positioning the close button */
+}
+
+.quest-popup-close-button {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    width: 30px;
+    height: 30px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted-color);
+    font-size: 28px;
+    font-weight: bold;
+    line-height: 1;
+    cursor: pointer;
+    transition: color 0.2s;
+    z-index: 10;
+}
+
+.quest-popup-close-button:hover {
+    color: var(--text-color);
 }
 
 .quest-popup-header, .quest-popup-footer {
@@ -204,17 +226,36 @@
 /* --- 遗留/兼容性样式 --- */
 .hidden { display: none !important; }
 
-/* 任务日志入口按钮 (保持原样或按需调整) */
+/* 任务日志入口按钮 */
 #quest-log-entry-button {
-    position: fixed; 
-    top: 10px; 
-    right: 150px; 
-    z-index: 1000; 
-    cursor: pointer; 
-    font-size: 24px; 
+    position: fixed;
+    top: 10px;
+    right: 150px; /* Default for larger screens */
+    z-index: 2147483645; /* High z-index but below popup */
+    cursor: pointer;
+    font-size: 24px;
     color: var(--primary-accent-color);
-    transition: transform 0.2s;
+    padding: 5px;
+    background-color: rgba(44, 47, 51, 0.7);
+    border-radius: 50%;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s, color 0.2s, background-color 0.2s;
 }
+
 #quest-log-entry-button:hover {
     transform: scale(1.1);
+    background-color: var(--section-bg-color);
+    color: var(--primary-accent-hover-color);
+}
+
+/* Media query for smaller screens */
+@media (max-width: 768px) {
+    #quest-log-entry-button {
+        right: 10px; /* Move to the edge on smaller screens */
+        top: 60px; /* Move down to avoid overlapping other top-right icons */
+    }
 }

@@ -82,12 +82,8 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             console.error('[QuestSystem] One or more critical global APIs are not available.');
             return false;
         }
-        const context = SillyTavern.getContext();
-        if (!context || typeof context.callGenericPopup !== 'function' || !context.POPUP_TYPE || typeof context.POPUP_TYPE.DISPLAY === 'undefined') {
-            console.error('[QuestSystem] SillyTavern.getContext().callGenericPopup or POPUP_TYPE.DISPLAY is not available.');
-            toastr.error("任务系统错误：弹窗 API 不可用，请更新 SillyTavern。");
-            return false;
-        }
+        // The check for callGenericPopup is removed as it's no longer the primary display method.
+        // It will be checked specifically where it's used (e.g., prompt editor).
         return true;
     }
 
@@ -329,16 +325,16 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
      * This is the single source of truth for UI updates.
      */
     function refreshQuestPopupUI() {
-        const popupDialog = $(`dialog[open]:not([closing])`);
-        const questPopup = popupDialog.find(`#${QUEST_POPUP_ID}`);
+        // The popup is now a direct child of the body.
+        const questPopup = $(`#${QUEST_POPUP_ID}`);
 
         if (questPopup.length > 0) {
             // Generate the full new HTML for the popup's content
             const newHtml = createQuestPopupHtml();
-            // Replace the old content with the new content to avoid DOM nesting issues
+            // Replace the old popup with the new one
             questPopup.replaceWith(newHtml);
-            // We need to re-find the newly inserted element to bind events to it
-            const newQuestPopup = popupDialog.find(`#${QUEST_POPUP_ID}`);
+            // Re-find the newly inserted element by its ID to bind events
+            const newQuestPopup = $(`#${QUEST_POPUP_ID}`);
             if (newQuestPopup.length) {
                 bindQuestPopupEvents(newQuestPopup);
             }
@@ -347,6 +343,7 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
 
     function createQuestPopupHtml() {
         let html = `<div id="${QUEST_POPUP_ID}" class="quest-popup-container">`;
+        html += `<button class="quest-popup-close-button">&times;</button>`;
         html += `<div class="quest-popup-body">`;
 
         // AI Section
@@ -411,9 +408,16 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
     
     function bindQuestPopupEvents(popupContent$) {
         // Use a single delegated event handler for all buttons inside the popup
-        popupContent$.off('.questSystem').on('click.questSystem', '.quest-button', async function(event) {
+        popupContent$.off('.questSystem').on('click.questSystem', '.quest-button, .quest-popup-close-button', async function(event) {
             event.stopPropagation();
             const button = $(this);
+
+            // Handle close button specifically
+            if (button.hasClass('quest-popup-close-button')) {
+                closeQuestLogPopup();
+                return;
+            }
+            
             const buttonId = button.attr('id');
             const action = button.data('action');
             const taskId = button.data('task-id');
@@ -468,35 +472,49 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
         }, 300);
     }
     
+    function closeQuestLogPopup() {
+        const popup = $(`#${QUEST_POPUP_ID}`);
+        if (popup.length) {
+            popup.remove();
+        }
+    }
+
     async function showQuestLogPopup() {
         if (!checkAPIs()) return;
-        await loadPlayerTasks();
+        
+        // Close any existing popup first
+        closeQuestLogPopup();
+
+        // Tasks are now loaded at init, so we just create the HTML
         const popupContentHtml = createQuestPopupHtml();
         
-        SillyTavern.getContext().callGenericPopup(popupContentHtml, SillyTavern.getContext().POPUP_TYPE.DISPLAY, "任务日志", { wide: true, large: true, allowVerticalScrolling: true });
+        // Inject directly into the body instead of using the generic popup
+        $('body').append(popupContentHtml);
 
-        // Use a timeout to ensure the popup is fully rendered before binding events
-        setTimeout(() => {
-            const popupInstance = $(`dialog[open]:not([closing]) #${QUEST_POPUP_ID}`);
-            if (popupInstance.length) {
-                bindQuestPopupEvents(popupInstance);
-            } else {
-                console.error("[QuestSystem] Could not find quest popup instance to bind events.");
-            }
-        }, 300);
+        // Bind events to the newly created popup
+        const popupInstance = $(`#${QUEST_POPUP_ID}`);
+        if (popupInstance.length) {
+            bindQuestPopupEvents(popupInstance);
+        } else {
+            console.error("[QuestSystem] Could not find quest popup instance to bind events.");
+        }
     }
     
     // --- Initialization ---
-    function initialize() {
+    async function initialize() {
         if (!checkAPIs()) {
             console.error("[QuestSystem] Initialization failed due to missing APIs.");
             return;
         }
 
+        // Load tasks once on startup to avoid logging on every click
+        await loadPlayerTasks();
+
         // Create a button in the UI as the entry point
         const buttonId = 'quest-log-entry-button';
         if ($(`#${buttonId}`).length === 0) {
-            const buttonHtml = `<div id="${buttonId}" title="任务日志" class="fa-solid fa-scroll" style="position: fixed; top: 10px; right: 150px; z-index: 1000; cursor: pointer; font-size: 24px; color: #00AEEF;"></div>`;
+            // Style is now controlled entirely by style.css
+            const buttonHtml = `<div id="${buttonId}" title="任务日志" class="fa-solid fa-scroll"></div>`;
             $('body').append(buttonHtml);
             $(`#${buttonId}`).on('click', showQuestLogPopup);
         }
