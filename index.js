@@ -1,5 +1,3 @@
-import { checkForUpdates } from './update.js';
-
 // 使用 jQuery 确保在 DOM 加载完毕后执行
 jQuery(async () => {
     // 定义扩展名称和路径
@@ -353,8 +351,110 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             }
         }
     }
-    
-    
+    // --- Updater Module ---
+    const Updater = {
+        gitRepoOwner: "1830488003",
+        gitRepoName: "quest-system-extension",
+        currentVersion: "0.0.0",
+        latestVersion: "0.0.0",
+        changelogContent: "",
+
+        async fetchRawFileFromGitHub(filePath) {
+            const url = `https://raw.githubusercontent.com/${this.gitRepoOwner}/${this.gitRepoName}/main/${filePath}`;
+            const response = await fetch(url, { cache: 'no-cache' });
+            if (!response.ok) {
+                throw new Error(`Failed to fetch ${filePath} from GitHub: ${response.statusText}`);
+            }
+            return response.text();
+        },
+
+        parseVersion(content) {
+            try {
+                return JSON.parse(content).version || "0.0.0";
+            } catch (error) {
+                console.error("Failed to parse version:", error);
+                return "0.0.0";
+            }
+        },
+
+        compareVersions(v1, v2) {
+            const parts1 = v1.split('.').map(Number);
+            const parts2 = v2.split('.').map(Number);
+            for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+                const p1 = parts1[i] || 0;
+                const p2 = parts2[i] || 0;
+                if (p1 > p2) return 1;
+                if (p1 < p2) return -1;
+            }
+            return 0;
+        },
+
+        async performUpdate() {
+            const { getRequestHeaders } = SillyTavern.getContext().common;
+            const { extension_types } = SillyTavern.getContext().extensions;
+            toastr.info("正在开始更新...");
+            try {
+                const response = await fetch('/api/extensions/update', {
+                    method: 'POST',
+                    headers: getRequestHeaders(),
+                    body: JSON.stringify({
+                        extensionName: extensionName,
+                        global: extension_types[extensionName] === 'global',
+                    }),
+                });
+                if (!response.ok) throw new Error(await response.text());
+
+                toastr.success("更新成功！将在3秒后刷新页面应用更改。");
+                setTimeout(() => location.reload(), 3000);
+            } catch (error) {
+                toastr.error(`更新失败: ${error.message}`);
+            }
+        },
+
+        async showUpdateConfirmDialog() {
+            const { POPUP_TYPE, callGenericPopup } = SillyTavern.getContext().popup;
+            try {
+                this.changelogContent = await this.fetchRawFileFromGitHub('CHANGELOG.md');
+            } catch (error) {
+                this.changelogContent = `发现新版本 ${this.latestVersion}！您想现在更新吗？`;
+            }
+            if (await callGenericPopup(this.changelogContent, POPUP_TYPE.CONFIRM, { okButton: "立即更新", cancelButton: "稍后", wide: true, large: true })) {
+                await this.performUpdate();
+            }
+        },
+
+        async checkForUpdates(isManual = false) {
+            const updateButton = $('#quest-check-update-button');
+            const updateIndicator = $('.extension_settings[data-extension-name="quest-system-extension"] .update-indicator');
+            if (isManual) {
+                updateButton.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> 检查中...');
+            }
+            try {
+                const localManifestText = await (await fetch(`/${extensionFolderPath}/manifest.json?t=${Date.now()}`)).text();
+                this.currentVersion = this.parseVersion(localManifestText);
+                $('#quest-system-current-version').text(this.currentVersion);
+
+                const remoteManifestText = await this.fetchRawFileFromGitHub('manifest.json');
+                this.latestVersion = this.parseVersion(remoteManifestText);
+
+                if (this.compareVersions(this.latestVersion, this.currentVersion) > 0) {
+                    updateIndicator.show();
+                    updateButton.html(`<i class="fa-solid fa-gift"></i> 发现新版 ${this.latestVersion}!`).off('click').on('click', () => this.showUpdateConfirmDialog());
+                    if (isManual) toastr.success(`发现新版本 ${this.latestVersion}！点击按钮进行更新。`);
+                } else {
+                    updateIndicator.hide();
+                    if (isManual) toastr.info('您当前已是最新版本。');
+                }
+            } catch (error) {
+                if (isManual) toastr.error(`检查更新失败: ${error.message}`);
+            } finally {
+                if (isManual && this.compareVersions(this.latestVersion, this.currentVersion) <= 0) {
+                    updateButton.prop('disabled', false).html('<i class="fa-solid fa-cloud-arrow-down"></i> 检查更新');
+                }
+            }
+        }
+    };
+
     // --- UI Functions ---
     function refreshQuestPopupUI() {
         const questPopup = $(`#${QUEST_POPUP_ID}`);
@@ -681,8 +781,8 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             });
             
             // 4. Bind update button and run initial check
-            extensionSettings.find('#quest-check-update-button').on('click', () => checkForUpdates(true));
-            checkForUpdates(false); // Initial silent check
+            extensionSettings.find('#quest-check-update-button').on('click', () => Updater.checkForUpdates(true));
+            Updater.checkForUpdates(false); // Initial silent check
 
             // Make sure the drawer is closed by default
             extensionSettings.find('.inline-drawer').removeClass('open');
