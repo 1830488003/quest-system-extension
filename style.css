@@ -18,13 +18,12 @@
 /* --- 弹窗容器与布局 --- */
 .quest-popup-container {
     position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    top: 5vh; /* Position from top for mobile */
+    left: 5vw; /* Position from left for mobile */
     z-index: 2147483646;
     width: 90vw;
     max-width: 1000px;
-    max-height: 85vh;
+    max-height: 90vh; /* Allow a bit more height */
     
     background-color: var(--main-bg-color);
     color: var(--text-color);
@@ -197,6 +196,12 @@
 
 /* --- 桌面端响应式布局 --- */
 @media (min-width: 768px) {
+    .quest-popup-container {
+        /* Restore centered-transform for desktop */
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 60vw; /* You can use a more specific width for desktop */
+    }
     .quest-popup-body {
         grid-template-columns: repeat(2, 1fr); /* Two columns on larger screens */
         grid-template-rows: auto 1fr; /* Let top row be auto, bottom row take remaining space */
