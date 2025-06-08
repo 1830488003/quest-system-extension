@@ -1,0 +1,183 @@
+# SillyTavern 扩展开发入门教程 (含自动更新功能)
+
+本教程将指导您创建一个基础的 SillyTavern 扩展，并实现一个自动更新机制。我们将参考 `JS-Slash-Runner` 的实现方式，因为它是一个很好的范例。
+
+---
+
+## 步骤 1: 准备工作和项目结构
+
+首先，在 SillyTavern 的 `public/extensions` 目录下创建一个新的文件夹，作为您扩展的根目录。例如，我们称之为 `MyFirstExtension`。
+
+一个基本的项目结构如下：
+
+```
+MyFirstExtension/
+├── manifest.json       # 扩展的清单文件，至关重要
+├── index.js            # 扩展的 JavaScript 主逻辑
+├── style.css           # 扩展的 CSS 样式文件 (可选)
+└── index.html          # 扩展的 UI 界面模板 (可选)
+```
+
+---
+
+## 步骤 2: 编写 `manifest.json` 清单文件
+
+`manifest.json` 是 SillyTavern 识别和加载您扩展的唯一凭证。
+
+```json
+{
+  "display_name": "我的第一个扩展",
+  "loading_order": 200,
+  "requires": [],
+  "optional": [],
+  "js": "index.js",
+  "css": "style.css",
+  "author": "你的名字",
+  "version": "1.0.0",
+  "homePage": "https://github.com/你的用户名/你的仓库名",
+  "auto_update": true
+}
+```
+
+**关键字段解释:**
+
+-   `display_name`: 扩展在 SillyTavern 设置中显示的名称。
+-   `js` 和 `css`: 指向您的主 JS 和 CSS 文件。SillyTavern 会将它们注入到页面中。
+-   `version`: 您扩展的当前版本。**这对于更新检查至关重要**。
+-   `homePage`: 指向您扩展的 GitHub 仓库主页。**自动更新功能会用到这个地址**。
+-   `auto_update`: 设置为 `true` 来告诉 SillyTavern，您的扩展希望自己处理或由系统辅助处理更新。
+
+---
+
+## 步骤 3: 编写入口脚本 `index.js`
+
+这是您扩展的核心。它负责初始化 UI、加载功能和处理事件。
+
+```javascript
+// 使用 jQuery 的 document ready，确保在页面加载完毕后执行
+jQuery(async () => {
+    console.log("我的第一个扩展已加载！");
+
+    // 扩展的唯一标识符，用于存储设置
+    const extensionSettingName = 'my_first_extension';
+
+    // 1. 初始化UI
+    // SillyTavern 提供了 renderExtensionTemplateAsync API 来加载HTML模板
+    // 'MyFirstExtension' 是你的扩展文件夹名
+    const extensionHtml = await renderExtensionTemplateAsync('MyFirstExtension', 'index');
+    $('#extensions_settings').append(extensionHtml);
+
+    // 2. 初始化设置
+    // extension_settings 是 SillyTavern 提供的全局对象
+    if (!extension_settings[extensionSettingName]) {
+        console.log('未找到设置，创建默认设置...');
+        // 设置一个默认值
+        extension_settings[extensionSettingName] = {
+            some_setting: 'default_value',
+        };
+        // 保存设置
+        await saveSettings();
+    }
+
+    // 3. 监听 APP_READY 事件
+    // 这是最佳实践，确保在 SillyTavern 完全准备好之后再执行核心功能
+    eventSource.once(event_types.APP_READY, () => {
+        console.log('SillyTavern 已就绪，开始执行核心功能。');
+        // 在这里调用你的核心功能初始化函数
+        // 例如：initMyFeatures();
+        // 例如：initAutoUpdater(); // 初始化自动更新检查
+    });
+});
+```
+
+---
+
+## 步骤 4: 创建 UI 界面 `index.html`
+
+这是一个简单的 HTML 文件，它将被 `index.js` 注入到 SillyTavern 的设置页面。
+
+```html
+<div class="my-extension-panel">
+    <h2>我的第一个扩展</h2>
+    <p>这是一个基础的扩展面板。</p>
+    <div id="update-notification"></div>
+</div>
+```
+
+---
+
+## 步骤 5: 实现自动更新功能
+
+这是本教程的重点。我们将模仿 `JS-Slash-Runner` 的逻辑。
+
+1.  **准备 GitHub 仓库**
+    您需要一个公开的 GitHub 仓库。在仓库的根目录，`package.json` 文件是存储版本号的理想选择，因为大多数 JS 项目都有它。
+
+2.  **编写更新检查逻辑**
+    在 `index.js` 中添加以下函数。
+
+    ```javascript
+    async function check_for_update() {
+        try {
+            // 从 manifest.json 中获取你的仓库地址和当前版本
+            const homePage = manifest.homePage;
+            const currentVersion = manifest.version;
+
+            // 拼接 package.json 的 raw URL
+            // 例如: https://raw.githubusercontent.com/user/repo/main/package.json
+            const repoUrl = new URL(homePage);
+            const rawUrl = `https://raw.githubusercontent.com${repoUrl.pathname}/main/package.json`;
+
+            console.log(`正在从 ${rawUrl} 检查更新...`);
+
+            // 发起网络请求获取远程 package.json
+            const response = await fetch(rawUrl);
+            if (!response.ok) {
+                throw new Error(`无法获取远程版本文件: ${response.statusText}`);
+            }
+            const remotePackage = await response.json();
+            const latestVersion = remotePackage.version;
+
+            console.log(`当前版本: ${currentVersion}, 最新版本: ${latestVersion}`);
+
+            // 版本比较 (一个简单的比较)
+            if (latestVersion > currentVersion) {
+                console.log('发现新版本！');
+                // 在 UI 中显示更新提示
+                $('#update-notification').html(`
+                    <p>发现新版本: ${latestVersion}！</p>
+                    <button class="menu_button" id="update-button">立即更新</button>
+                `);
+                // 绑定更新按钮的点击事件
+                $('#update-button').on('click', () => {
+                    // SillyTavern 核心功能中可能包含处理更新的逻辑
+                    // 一个简单的方法是引导用户手动更新或刷新页面以触发内置更新器
+                    alert('请在SillyTavern启动器或通过Git拉取最新版本来更新扩展！');
+                });
+            } else {
+                console.log('已是最新版本。');
+            }
+        } catch (error) {
+            console.error('检查更新失败:', error);
+        }
+    }
+
+    // 在 APP_READY 事件中调用更新检查
+    eventSource.once(event_types.APP_READY, () => {
+        console.log('SillyTavern 已就绪，开始执行核心功能。');
+        check_for_update();
+    });
+    ```
+
+**解释:**
+
+-   此逻辑通过 `fetch` API 从您的 GitHub 仓库直接读取 `package.json` 文件的内容。
+-   它提取 `version` 字段，并与 `manifest.json` 中定义的 `currentVersion`进行比较。
+-   如果远程版本更高，它会使用 jQuery 在您的扩展面板中动态创建一个更新通知和按钮。
+-   **关于更新执行**：直接在前端通过 JS 实现文件替换操作非常复杂且不安全。SillyTavern 的 `auto_update` 机制通常与启动器（如 `start.bat`）配合使用。当 SillyTavern 启动时，它会检查所有设置了 `auto_update: true` 的扩展，并自动运行 `git pull` 来更新。因此，我们这里的按钮主要起一个 **通知** 作用，引导用户通过标准方式更新。
+
+---
+
+## 总结
+
+现在您已经拥有一个完整的、带自动更新检查功能的基础扩展了。将 `MyFirstExtension` 文件夹放入 `public/extensions`，重启 SillyTavern，您应该就能在扩展设置中看到它了。当您在 GitHub 发布新版本时，它会自动检测到并提示用户。

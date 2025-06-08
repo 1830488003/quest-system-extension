@@ -1,0 +1,220 @@
+/* --- 全局与基础样式 --- */
+:root {
+    --main-bg-color: #2c2f33;
+    --section-bg-color: #23272a;
+    --text-color: #ffffff;
+    --text-muted-color: #99aab5;
+    --primary-accent-color: #7289da; /* Discord Blurple */
+    --primary-accent-hover-color: #677bc4;
+    --success-color: #43b581; /* Discord Green */
+    --warning-color: #faa61a; /* Discord Yellow */
+    --danger-color: #f04747; /* Discord Red */
+    --border-color: #40444b;
+    --font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    --border-radius: 8px;
+    --box-shadow: 0 8px 16px rgba(0,0,0,0.25);
+}
+
+/* --- 弹窗容器与布局 --- */
+.quest-popup-container {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 2147483646;
+    width: 90vw;
+    max-width: 1000px;
+    max-height: 85vh;
+    
+    background-color: var(--main-bg-color);
+    color: var(--text-color);
+    font-family: var(--font-family);
+    
+    display: flex;
+    flex-direction: column;
+    
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    border: 1px solid var(--border-color);
+    
+    overflow: hidden; /* Hide overflow on the main container */
+}
+
+.quest-popup-header, .quest-popup-footer {
+    flex-shrink: 0;
+    padding: 16px;
+    background-color: rgba(0,0,0,0.1);
+}
+
+.quest-popup-header {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.quest-popup-body {
+    flex-grow: 1;
+    padding: 16px;
+    overflow-y: auto; /* Enable scrolling only on the body */
+    display: grid;
+    grid-template-columns: 1fr; /* Mobile-first: single column */
+    gap: 16px;
+}
+
+/* 隐藏滚动条但保留功能 */
+.quest-popup-body::-webkit-scrollbar { display: none; }
+.quest-popup-body { -ms-overflow-style: none; scrollbar-width: none; }
+
+
+/* --- 区块样式 --- */
+.quest-section {
+    background-color: var(--section-bg-color);
+    border-radius: var(--border-radius);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.quest-section h3 {
+    margin: 0;
+    font-size: 1.2em;
+    color: var(--primary-accent-color);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* --- 任务条目样式 --- */
+.quest-item {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 12px;
+}
+.quest-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.quest-item.completed-quest {
+    opacity: 0.6;
+}
+
+.quest-title {
+    font-weight: 600;
+    font-size: 1.05em;
+    color: var(--text-color);
+    margin: 0 0 5px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.completed-quest .quest-title {
+    color: var(--success-color);
+    text-decoration: line-through;
+}
+
+.quest-title .fa-robot {
+    color: var(--primary-accent-color);
+}
+
+.quest-description {
+    font-size: 0.9em;
+    color: var(--text-muted-color);
+    line-height: 1.5;
+    margin: 0 0 10px 0;
+}
+
+/* --- 按钮和控件 --- */
+.quest-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.quest-button {
+    background-color: var(--primary-accent-color);
+    color: var(--text-color);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: 500;
+    transition: background-color 0.2s, transform 0.1s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.quest-button:hover {
+    background-color: var(--primary-accent-hover-color);
+}
+
+.quest-button:active {
+    transform: scale(0.98);
+}
+
+.quest-button.accept { background-color: var(--primary-accent-color); }
+.quest-button.complete { background-color: var(--success-color); }
+.quest-button.abandon { background-color: var(--warning-color); color: var(--section-bg-color); }
+.quest-button.edit-prompt { background-color: transparent; border: 1px solid var(--primary-accent-color); }
+
+.quest-button:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.no-tasks {
+    color: var(--text-muted-color);
+    text-align: center;
+    padding: 20px;
+    font-style: italic;
+}
+
+
+/* --- 桌面端响应式布局 --- */
+@media (min-width: 768px) {
+    .quest-popup-body {
+        grid-template-columns: repeat(2, 1fr); /* Two columns on larger screens */
+        grid-template-rows: auto 1fr; /* Let top row be auto, bottom row take remaining space */
+    }
+
+    /* Span sections across columns */
+    .quest-section.ai-generator {
+        grid-column: 1 / -1; /* Span full width */
+        grid-row: 1;
+    }
+    .quest-section.active-quests {
+        grid-column: 1 / 2;
+        grid-row: 2;
+    }
+    .quest-section.available-quests {
+        grid-column: 2 / 3;
+        grid-row: 2;
+    }
+     .quest-section.completed-quests {
+        grid-column: 1 / -1; /* Span full width */
+        grid-row: 3;
+    }
+}
+
+
+/* --- 遗留/兼容性样式 --- */
+.hidden { display: none !important; }
+
+/* 任务日志入口按钮 (保持原样或按需调整) */
+#quest-log-entry-button {
+    position: fixed; 
+    top: 10px; 
+    right: 150px; 
+    z-index: 1000; 
+    cursor: pointer; 
+    font-size: 24px; 
+    color: var(--primary-accent-color);
+    transition: transform 0.2s;
+}
+#quest-log-entry-button:hover {
+    transform: scale(1.1);
+}

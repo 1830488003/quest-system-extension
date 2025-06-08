@@ -1,0 +1,368 @@
+# SillyTavern 扩展开发完全教程
+
+你好！我是 Cline，一名软件工程师。本教程将通过分析一个现有的扩展 `st-input-helper-master`，带你一步步了解 SillyTavern（酒馆）扩展的开发流程和核心概念。无论你是否有编程基础，我都会尽量用清晰易懂的方式来讲解。
+
+## 第一部分：扩展是如何工作的？—— 解构 `st-input-helper-master`
+
+在我们动手编写代码之前，首先要理解一个扩展是如何被酒馆加载并运行的。`st-input-helper-master` 是一个功能相对完善的输入辅助工具，非常适合作为我们的分析案例。
+
+一个SillyTavern扩展本质上是一组运行在浏览器环境中的前端文件（主要是 JavaScript、HTML 和 CSS）。当酒馆启动时，它会读取 `public/extensions` 目录下的所有扩展，并根据每个扩展的 `manifest.json` 文件来加载它们。
+
+`st-input-helper-master` 的文件结构如下：
+- `manifest.json`: 扩展的清单文件，告诉酒馆这是个什么扩展，以及如何加载它。
+- `index.js`: 扩展的核心逻辑，几乎所有的功能都在这里实现。
+- `settings.html`: 定义了扩展在酒馆“设置”页面中的UI界面。
+- `toolbar.html`: 定义了显示在主聊天输入框下方的快捷按钮栏的UI。
+- `style.css`: 包含了所有自定义界面的样式规则。
+- `README.md`: 扩展的说明文档。
+
+接下来，我们将逐一深入分析这些文件。
+
+### 1. `manifest.json` - 扩展的“身份证”
+
+`manifest.json` 是一个扩展的入口点和最重要的文件，没有它，酒馆就无法识别你的扩展。它使用 JSON 格式来描述扩展的元数据和加载规则。
+
+让我们看看 `st-input-helper-master` 的 `manifest.json`：
+```json
+{
+    "display_name": "输入助手",
+    "loading_order": 9,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "AI助手和Mooooooon",
+    "version": "1.3.1",
+    "homePage": "https://github.com/Mooooooon/st-input-helper"
+}
+```
+
+下面是每个字段的详细解释：
+
+- **`display_name`**: (必需) 扩展在酒馆设置界面中显示的名字。这应该是对用户友好的、易于理解的名称。
+  - *示例中*: `"输入助手"`
+
+- **`loading_order`**: (必需) 一个数字，决定了扩展加载的顺序。数字越小，加载越早。SillyTavern 的核心扩展通常使用低于 1000 的值。对于第三方扩展，建议使用大于 1000 的值以避免冲突。如果你不确定，可以从一个较大的数字开始，比如 `1001`。
+  - *示例中*: `9`，这个值比较小，意味着它希望在很多其他扩展之前加载。
+
+- **`requires`**: 一个数组，列出了此扩展正常运行所依赖的其他扩展的文件夹名称。如果依赖的扩展未启用，酒馆将不会加载此扩展。
+  - *示例中*: `[]`，表示它不依赖任何其他扩展。
+
+- **`optional`**: 一个数组，列出了此扩展可以与之集成但非必需的其他扩展的文件夹名称。无论这些可选的扩展是否启用，此扩展都会被加载。
+  - *示例中*: `[]`，表示它没有可选的依赖项。
+
+- **`js`**: (必需) 指定扩展的主要 JavaScript 文件的路径（相对于扩展根目录）。这是扩展逻辑的入口。
+  - *示例中*: `"index.js"`
+
+- **`css`**: 指定扩展的 CSS 样式表文件的路径。如果你的扩展有自定义UI，就需要这个文件。
+  - *示例中*: `"style.css"`
+
+- **`author`**: 扩展的作者名。
+  - *示例中*: `"AI助手和Mooooooon"`
+
+- **`version`**: 扩展的版本号，遵循 [语义化版本](https://semver.org/lang/zh-CN/) 规范（例如 `主版本号.次版本号.修订号`）是个好习惯。
+  - *示例中*: `"1.3.1"`
+
+- **`homePage`**: 一个链接，通常指向扩展的 Github 仓库或官方主页。
+  - *示例中*: `"https://github.com/Mooooooon/st-input-helper"`
+
+**总结**: `manifest.json` 文件定义了扩展的基本属性和依赖关系，并告诉酒馆应该加载哪个JS文件来执行代码，以及加载哪个CSS文件来渲染样式。这是创建任何扩展的第一步。
+
+### 2. `index.js` - 扩展的大脑
+
+`index.js` 是扩展的逻辑核心。SillyTavern 本身大量使用了 [jQuery](https://jquery.com/)，因此在扩展中我们也可以（并且推荐）使用它来简化 DOM 操作和事件处理。
+
+#### 2.1 代码的起点：`jQuery(async () => { ... });`
+
+`st-input-helper-master` 的 `index.js` 文件的所有代码都包裹在一个 `jQuery(async () => { ... });` 块中。
+
+```javascript
+jQuery(async () => {
+    // ... 所有的代码都在这里 ...
+    console.log("输入助手插件已加载");
+});
+```
+
+这是一种简写，等同于 `$(document).ready(function() { ... });`。它的作用是：**确保在执行内部代码之前，页面的所有 DOM 元素都已经加载完毕**。这是一个非常重要的实践，因为如果你试图操作一个尚未加载的 HTML 元素，代码就会出错。`async` 关键字表示这个函数内部可以使用 `await` 来处理异步操作，例如加载文件。
+
+#### 2.2 动态加载 UI：`settings.html` & `toolbar.html`
+
+硬编码大段的 HTML 字符串到 JavaScript 文件中是一种糟糕的实践。`st-input-helper` 采用了更好的方法：将 UI 分离到单独的 `.html` 文件中，然后在运行时动态加载它们。
+
+```javascript
+// 初始化插件
+jQuery(async () => {
+    // 加载HTML
+    const settingsHtml = await $.get(`${extensionFolderPath}/settings.html`);
+    $("#extensions_settings2").append(settingsHtml);
+
+    // 加载输入工具栏HTML
+    const toolbarHtml = await $.get(`${extensionFolderPath}/toolbar.html`);
+    // ... 将工具栏插入到页面 ...
+    $("#qr--bar").append(toolbarHtml);
+});
+```
+- **`$.get(url)`**: 这是 jQuery 提供的一个函数，用于通过 HTTP GET 请求获取数据。在这里，它被用来读取 `.html` 文件的内容。由于这是一个网络请求，它是异步的，所以我们使用 `await` 来等待文件内容返回。
+- **`extensionFolderPath`**: 这是一个预定义的路径变量，指向当前扩展的文件夹。
+- **`$("#extensions_settings2").append(settingsHtml)`**:
+    - `$("#extensions_settings2")`：使用 jQuery 选择器选中了酒馆设置页面中一个 ID 为 `extensions_settings2` 的 `<div>` 元素。这是酒馆为第三方扩展预留的设置区域。
+    - `.append(settingsHtml)`：将刚刚读取到的 `settings.html` 的内容（作为字符串）追加到这个 `<div>` 中，从而在页面上显示出扩展的设置界面。
+- 工具栏的加载和插入也是同理，它被插入到了 ID 为 `qr--bar` 的元素中，这个元素位于主聊天输入框附近。
+
+#### 2.3 设置的保存与加载：`extension_settings`
+
+如何让用户在刷新页面后还能保留自己的配置？SillyTavern 提供了一个全局 JavaScript 对象 `extension_settings` 来解决这个问题。
+
+- **`extension_settings`**: 这是一个全局对象。你可以把它想象成一个大的 JSON 数据库。酒馆会自动将这个对象中所有的数据持久化保存到用户的浏览器本地存储（localStorage）中。
+- **访问你的设置**: 每个扩展都应该在这个全局对象下创建一个以自己扩展名命名的子对象，以避免和其他扩展冲突。
+  - `extension_settings[extensionName] = extension_settings[extensionName] || {};`
+  - 这行代码检查 `extension_settings` 中是否已经存在名为 `st-input-helper` 的对象。如果不存在（比如第一次加载），就创建一个空对象 `{}`。`extensionName` 在这个插件中被设置为 `"st-input-helper"`。
+
+- **加载设置 (`loadSettings` 函数)**:
+    - 这个函数负责从 `extension_settings[extensionName]` 对象中读取配置项，并更新 UI 元素的状态。例如，根据保存的值来勾选或取消勾选复选框。
+    - 它还处理了默认设置：如果某个设置项不存在，就从 `defaultSettings` 对象中赋予它一个默认值。这确保了扩展在第一次运行时有合理的默认行为。
+
+- **保存设置 (`saveSettingsDebounced` 函数)**:
+    - 当用户在设置界面中更改了某个选项（例如，点击了一个复选框），相应的事件处理函数会被触发。
+    - 在事件处理函数中，代码会更新 `extension_settings[extensionName]` 对象中对应的值。
+    - `saveSettingsDebounced` 是 SillyTavern 提供的一个全局函数，你只需要在修改完 `extension_settings` 后调用它，它就会自动处理保存操作。**"Debounced"（防抖）** 意味着即使用户在短时间内频繁修改设置，它也只会在最后一次修改后的短暂延迟后执行一次保存，从而提高性能。
+
+#### 2.4 核心功能：操作输入框
+
+这个扩展的核心功能是在聊天输入框中插入文本。让我们以 `insertQuotes` 函数为例：
+
+```javascript
+// 插入引号功能
+function insertQuotes() {
+    if (!extension_settings[extensionName].enabled) return; // 检查插件是否启用
+
+    const textarea = getMessageInput(); // 获取输入框元素
+    const startPos = textarea.prop("selectionStart"); // 获取光标开始位置
+    const endPos = textarea.prop("selectionEnd"); // 获取光标结束位置
+    const text = textarea.val(); // 获取输入框所有文本
+
+    // ... (省略部分文本处理代码) ...
+
+    // 插入双引号并将光标放在中间
+    const newText = beforeText + "\"\"" + afterText;
+    textarea.val(newText); // 更新输入框的文本
+
+    // 设置光标位置在双引号中间
+    setTimeout(() => {
+        textarea.prop("selectionStart", startPos + 1);
+        textarea.prop("selectionEnd", startPos + 1);
+        textarea.focus();
+    }, 0);
+}
+```
+- **`getMessageInput()`**: 一个辅助函数，用于获取聊天输入框的 jQuery 对象。它同时尝试选中 `#send_textarea` 和 `#prompt_textarea`，因为在不同模式下输入框的 ID 可能不同。
+- **`textarea.prop("selectionStart")` / `textarea.prop("selectionEnd")`**: 这两个属性可以获取当前用户选中的文本范围。如果用户没有选中任何文本，那么 `startPos` 和 `endPos` 的值是相同的，都指向当前光标的位置。
+- **`textarea.val()`**: 获取或设置输入框的当前文本内容。
+- **`setTimeout(..., 0)`**: 这是一个小技巧。将光标设置和聚焦操作放在 `setTimeout` 中，可以确保它在浏览器完成对 `textarea.val(newText)` 的渲染更新之后再执行，从而避免光标定位不准确的问题。
+
+**总结**: `index.js` 通过 jQuery 的 `$(document).ready` 作为入口，动态加载 HTML，利用全局的 `extension_settings` 变量和 `saveSettingsDebounced` 函数来管理配置，并通过操作 DOM 元素（特别是输入框的 `value` 和 `selectionStart` 属性）来实现其核心功能。
+
+### 3. UI界面 (`settings.html` & `toolbar.html`) 和样式 (`style.css`)
+
+#### 3.1 `settings.html` - 设置面板
+
+这个文件定义了用户在酒馆设置里看到的配置界面。它就是纯粹的 HTML 代码。
+
+```html
+<!-- settings.html (部分代码) -->
+<div class="example-extension-settings">
+    <div class="inline-drawer">
+        <div class="inline-drawer-toggle inline-drawer-header">
+            <b>输入助手</b>
+            <!-- ... -->
+        </div>
+        <div class="inline-drawer-content">
+            <div class="example-extension_block flex-container">
+                <input id="enable_input_helper" type="checkbox" />
+                <label for="enable_input_helper">启用输入助手</label>
+            </div>
+            <!-- ... 更多设置项 ... -->
+        </div>
+    </div>
+</div>
+```
+
+- **`id="enable_input_helper"`**: 这是最重要的部分。`id` 是 HTML 元素的唯一标识符。在 `index.js` 中，正是通过这个 `id` 来获取这个复选框元素 (`$("#enable_input_helper")`)，然后读取它的状态（是否被勾选）或者监听它的变化。
+- **`class`**: `class` 用于将样式应用到元素上，或者用于选取一组相似的元素。比如 `inline-drawer` 是酒馆内置的样式类，可以让你的设置项拥有可折叠的抽屉效果，与原生UI保持一致。
+
+#### 3.2 `toolbar.html` - 工具栏按钮
+
+同理，这个文件定义了输入框下方的按钮。
+
+```html
+<!-- toolbar.html (部分代码) -->
+<div id="input_helper_toolbar" class="qr--buttons qr--color" data-mobile-safe="true">
+    <button id="input_asterisk_btn" class="qr--button menu_button interactable" title="插入双星号" data-norefocus="true">**</button>
+    <!-- ... 更多按钮 ... -->
+</div>
+```
+
+- **`id="input_asterisk_btn"`**: 这个按钮的唯一ID。`index.js` 通过 `$("#input_asterisk_btn").on("click", insertAsterisk);` 这样的代码，将点击这个按钮的动作和 `insertAsterisk` 函数关联起来。
+
+#### 3.3 `style.css` - 美化你的扩展
+
+这个文件负责定义扩展UI的外观。一个好的实践是尽可能使用酒馆内置的 CSS 变量，这样你的扩展就能自动适应用户选择的不同主题（如日间/夜间模式）。
+
+```css
+/* style.css (部分代码) */
+.shortcut-input {
+    background-color: var(--SmartThemeBlurTintColor);
+    color: var(--SmartThemeBodyColor);
+    border: 1px solid var(--SmartThemeBorderColor);
+    /* ... */
+}
+```
+
+- **`var(--SmartThemeBodyColor)`**: 这就是 CSS 变量。`--SmartThemeBodyColor` 是酒馆主题系统定义的一个变量，它代表了当前主题下的主文本颜色。通过使用 `var()` 函数，我们告诉浏览器：“使用当前主题的文本颜色”。当用户切换主题时，这个变量的值会自动改变，我们的 UI 颜色也会随之更新，无需编写任何额外的 JavaScript 代码。
+
+**总结**:
+- HTML 文件 (`.html`) 负责定义 UI 的 **结构**。
+- CSS 文件 (`.css`) 负责定义 UI 的 **外观**。
+- JavaScript 文件 (`.js`) 负责将结构和外观联系起来，并添加 **行为**（逻辑）。
+
+通过这种方式，代码的结构变得清晰，易于维护。你可以在不修改核心逻辑的情况下，轻易地调整 UI 布局或样式。
+
+## 第二部分：从零开始，编写你的第一个扩展
+
+现在我们已经理解了一个现有扩展的运作方式，是时候亲手创建一个了！我们将从一个最简单的 "Hello, World!" 扩展开始。
+
+### 1. 准备工作：创建文件夹和文件
+
+1.  打开你的 SillyTavern 安装目录。
+2.  进入 `public/extensions/third-party/` 文件夹。（第三方扩展建议放在这里）
+3.  创建一个新的文件夹，作为你扩展的根目录。文件夹名应该是唯一的，并且只包含英文字母、数字和短横线。我们把它命名为 `my-first-extension`。
+4.  在 `my-first-extension` 文件夹中，创建以下三个空文件：
+    -   `manifest.json`
+    -   `index.js`
+    -   `settings.html`
+
+现在你的文件结构应该如下：
+```
+SillyTavern/
+└── public/
+    └── extensions/
+        └── third-party/
+            └── my-first-extension/
+                ├── index.js
+                ├── manifest.json
+                └── settings.html
+```
+
+### 2. 编写 `manifest.json`
+
+这是第一步。打开 `manifest.json` 并填入以下内容：
+
+```json
+{
+    "display_name": "我的第一个扩展",
+    "loading_order": 1001,
+    "js": "index.js",
+    "author": "你的名字"
+}
+```
+-   我们给它起了一个名字 `我的第一个扩展`。
+-   `loading_order` 设置为 `1001`，避免与核心扩展冲突。
+-   指定了 `index.js` 为我们的脚本文件。
+-   别忘了把 `你的名字` 替换成你自己的名字！
+
+### 3. 编写 `settings.html`
+
+接下来，我们在设置页面里添加一句话，来证明我们的扩展被正确加载了。打开 `settings.html` 并写入：
+
+```html
+<div class="extension-settings-block">
+    <p>Hello, World! 我的第一个扩展已成功加载！</p>
+</div>
+```
+我们只是简单地创建了一个包含文本的段落。
+
+### 4. 编写 `index.js`
+
+这是我们的核心逻辑文件。现在，我们只做两件事：
+1.  在浏览器控制台打印一条消息。
+2.  加载我们的 `settings.html` 文件。
+
+打开 `index.js` 并写入：
+
+```javascript
+// 使用 jQuery 确保在 DOM 加载完毕后执行
+jQuery(async () => {
+    // 定义扩展名称和路径，这是一个好习惯
+    const extensionName = "my-first-extension";
+    const extensionFolderPath = `scripts/extensions/third-party/${extensionName}`;
+
+    // 1. 在控制台打印消息
+    console.log("我的第一个扩展正在运行！");
+
+    // 2. 加载 settings.html 并插入到设置页面
+    // 使用 await 等待文件加载完成
+    const settingsHtml = await $.get(`${extensionFolderPath}/settings.html`);
+    // 将 HTML 内容追加到酒馆为第三方扩展准备的区域
+    $("#extensions_settings2").append(settingsHtml);
+});
+```
+**代码解释**：
+-   `console.log(...)`: 这是一个标准的 JavaScript 函数，用于在浏览器的开发者工具的“控制台”标签页中打印一条消息。这是调试代码最基本、最有效的方法。
+-   剩下的代码我们已经在第一部分的分析中学到过了：它获取 `settings.html` 的内容，然后把它添加到酒馆的设置页面中。
+
+### 5. 查看成果！
+
+1.  **重启 SillyTavern**。每当你添加一个新扩展或修改 `manifest.json` 时，都需要重启来让更改生效。（对于 `index.js`, `css`, `html` 文件的修改，通常只需刷新浏览器页面即可）。
+2.  打开 SillyTavern，按 `F12` 打开浏览器开发者工具，切换到 "Console" (控制台) 标签页。你应该能看到我们打印的消息：`我的第一个扩展正在运行！`。
+3.  进入酒馆的设置页面 (Settings)，点击 "Extensions" (扩展) 标签。向下滚动，在 "Third Party" (第三方) 区域，你应该能看到我们添加的那句话：`Hello, World! 我的第一个扩展已成功加载！`。
+
+**恭喜你！你已经成功创建并运行了你的第一个 SillyTavern 扩展！**
+
+这虽然简单，但它包含了扩展开发的所有核心流程：
+-   创建 `manifest.json` 来注册扩展。
+-   使用 `index.js` 作为逻辑入口。
+-   使用 `jQuery` 在 DOM 加载后执行代码。
+-   与酒馆的 UI (设置页面) 进行交互。
+
+从这个基础出发，你就可以通过添加更多的 HTML 元素、CSS 样式和 JavaScript 逻辑来构建更复杂、更有用的功能了。
+
+## 第三部分：总结与进阶
+
+我们已经涵盖了SillyTavern扩展开发的基础知识。现在，让我们来总结一下关键点和一些可以帮助你走得更远的提示。
+
+### 核心开发流程回顾
+
+1.  **构思 (Idea)**: 你想为酒馆添加什么功能？是UI改进、工作流自动化，还是与外部API集成？
+2.  **创建结构 (Structure)**: 在 `public/extensions/third-party/` 中创建你的扩展文件夹。
+3.  **编写清单 (Manifest)**: 创建 `manifest.json`，定义你的扩展名称、入口文件和加载顺序。
+4.  **构建UI (HTML)**: 创建 `.html` 文件来定义设置面板或任何其他你需要的UI元素。
+5.  **编写逻辑 (JavaScript)**: 创建 `index.js` 文件。
+    -   使用 `jQuery(async () => { ... });` 作为安全入口点。
+    -   使用 `$.get` 加载你的 HTML 文件并将其附加到酒馆的DOM中。
+    -   使用 `extension_settings` 来存储和读取用户配置。
+    -   使用 `saveSettingsDebounced()` 来保存设置。
+    -   通过 jQuery 选择器 (`$`) 绑定事件并操作页面元素。
+6.  **添加样式 (CSS)**: （可选）创建 `.css` 文件，使用酒馆的CSS变量来美化你的UI，使其与主题适配。
+7.  **测试与调试 (Debug)**: 重启酒馆或刷新页面，使用浏览器的开发者工具 (`F12`) 检查控制台输出和DOM结构，确保一切正常工作。
+
+### 调试技巧
+
+-   **`console.log` 是你最好的朋友**: 在代码的关键位置使用 `console.log()` 输出变量的值或执行流程的标记，是定位问题最简单有效的方法。你可以打印变量、对象，甚至是整个DOM元素。
+-   **浏览器开发者工具**:
+    -   **Elements (元素)** 标签页：允许你检查和实时修改页面的HTML和CSS。你可以用它来测试样式或查找元素的 `id` 和 `class`。
+    -   **Console (控制台)** 标签页：显示 `console.log` 的输出和任何代码错误。错误信息通常会精确到出错的文件和行号。
+    -   **Sources (源代码)** 标签页：你可以找到并查看所有已加载的JS文件（包括你的扩展），甚至可以设置断点（breakpoints）来逐行执行和调试代码。
+
+### 探索更多
+
+SillyTavern 还提供了许多其他的全局变量和函数，可以让你实现更强大的功能。例如：
+-   `getContext()`: 获取包含当前角色卡、聊天记录等核心信息的上下文对象。
+-   `setCharacter(data)`: 修改角色卡数据。
+-   `toastr.success(message)` / `toastr.error(message)`: 显示美观的弹出式通知。
+
+学习这些的最佳方式就是**阅读其他扩展的源代码**。SillyTavern 官方自带的扩展（位于 `public/extensions/` 目录）是很好的学习材料。看看它们是如何与酒馆的核心功能交互的。
+
+希望本教程能帮助你开启 SillyTavern 扩展开发之旅。发挥你的创造力，为社区带来更多有趣和实用的功能吧！
+
+---
+**教程结束**
