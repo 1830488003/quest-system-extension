@@ -10,6 +10,9 @@ jQuery(async () => {
     const OLD_PLAYER_QUEST_VARIABLE_KEY = 'player_active_quests_log'; // For migration
     const AI_DEFINED_TASKS_KEY = 'ai_defined_tasks_log_v1'; // For persisting available AI tasks
     const PROMPT_EDITOR_POPUP_ID = 'th-prompt-editor-popup-v049';
+    const BUTTON_VISIBLE_KEY = 'quest_button_visible_v1';
+    const BUTTON_POSITION_KEY = 'quest_button_position_v1';
+
 
     // --- Prompt Templates ---
     const PROMPT_PREFIX_TEMPLATE = `
@@ -72,7 +75,7 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             .replace(/&/g, "&")
             .replace(/</g, "<")
             .replace(/>/g, ">")
-            .replace(/"/g, "&quot;")
+            .replace(/"/g, '\\"')
             .replace(/'/g, "&#039;");
     };
     
@@ -84,8 +87,6 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             console.error('[QuestSystem] One or more critical global APIs are not available.');
             return false;
         }
-        // The check for callGenericPopup is removed as it's no longer the primary display method.
-        // It will be checked specifically where it's used (e.g., prompt editor).
         return true;
     }
 
@@ -192,7 +193,6 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
         const taskIndex = definedTasks.findIndex(t => t.id === taskId);
         if (taskIndex === -1) { toastr.error(`任务 ${taskId} 未定义！`); return; }
         
-        // 从 definedTasks 中移动到 playerTasksStatus
         const taskDef = definedTasks.splice(taskIndex, 1)[0]; 
         
         playerTasksStatus[taskId] = {
@@ -204,7 +204,7 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             isAIGenerated: taskDef.isAIGenerated || false
         };
         
-        await saveAllTaskData(); // 保存所有数据并刷新UI
+        await saveAllTaskData();
         toastr.success(`已接受任务: ${taskDef.title}`);
         await injectSystemMessage(`${SillyTavern.name1 || '玩家'} 已接受任务: "${taskDef.title}"。\n任务描述: ${taskDef.description}`);
     }
@@ -227,13 +227,12 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
         
         delete playerTasksStatus[taskId];
         
-        // 如果是AI生成的任务，并且在可接任务列表里不存在，则重新加回去
         if (abandonedTask.isAIGenerated && !definedTasks.some(t => t.id === taskId)) {
             definedTasks.push(abandonedTask);
         }
         
         await injectSystemMessage(`${SillyTavern.name1 || '玩家'} 已放弃任务: "${abandonedTask.title}".`);
-        await saveAllTaskData(); // 保存所有数据并刷新UI
+        await saveAllTaskData();
         toastr.info(`任务已放弃: ${abandonedTask.title}`);
     }
 
@@ -268,13 +267,13 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
                 const reward = taskData.rewardMessage || "无特定奖励";
                 await injectSystemMessage(`${SillyTavern.name1 || '玩家'} 已完成任务: "${taskData.title}"！获得奖励: ${reward}`);
                 toastr.success(`任务完成: ${taskData.title}`);
-                await saveAllTaskData(); // 保存所有数据并刷新UI
+                await saveAllTaskData();
             } else if (aiResponse.includes("STATUS:未完成")) {
                 const condition = aiResponse.match(/CONDITION:\[(.*?)]/)?.[1] || "未知";
                 const suggestion = aiResponse.match(/SUGGESTION:\[(.*?)]/)?.[1] || "请继续努力。";
                 await injectSystemMessage(`任务 "${taskData.title}" 尚未完成。\n你需要: ${condition}\n或许可以尝试: ${suggestion}`);
                 toastr.info(`任务 "${taskData.title}" 尚未完成。`);
-                refreshQuestPopupUI(); // Also refresh UI to show the task is still active
+                refreshQuestPopupUI();
             } else {
                 throw new Error("AI未能明确判断任务状态。");
             }
@@ -282,7 +281,6 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             console.error('[QuestSystem] Error during AI task completion judgment:', error);
             toastr.error(`AI判断任务完成时出错: ${error.message}`);
         } finally {
-            // Restore button state, but the popup might have been refreshed, so we re-select it
             const finalButton = $(`#${QUEST_POPUP_ID} .quest-item[data-task-id="${taskId}"] .complete`);
             if(finalButton.length) {
                 finalButton.prop('disabled', false).html(originalButtonHtml);
@@ -331,7 +329,6 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
                     rewardMessage: match[3].trim(),
                     isAIGenerated: true
                 };
-                // Add if not already in the defined list OR in the player's log
                 if (!definedTasks.some(t => t.title === newTask.title) && !Object.values(playerTasksStatus).some(pt => pt.title === newTask.title)) {
                     definedTasks.push(newTask);
                     tasksGeneratedCount++;
@@ -340,7 +337,6 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
 
             if (tasksGeneratedCount > 0) {
                 toastr.success(`AI成功生成了 ${tasksGeneratedCount} 个新任务!`);
-                // 保存新生成的任务列表
                 await saveAllTaskData();
             } else {
                 toastr.error("AI返回的任务格式不正确，无法解析。");
@@ -349,7 +345,6 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             console.error('[QuestSystem] Error generating AI task:', error);
             toastr.error(`AI任务生成失败: ${error.message}`);
         } finally {
-            // Re-select the button as the popup might have been refreshed
             const finalButton = $(`#${QUEST_POPUP_ID} #trigger-ai-task-generation`);
             if (finalButton.length) {
                 finalButton.prop('disabled', false).html(originalButtonHtml);
@@ -360,47 +355,23 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
     // --- Update Checker ---
     async function check_for_update() {
         try {
-            // Fetch our own manifest to get homepage and version
-            const manifestResponse = await fetch(`/${extensionFolderPath}/manifest.json?t=${Date.now()}`); // bust cache
-            if (!manifestResponse.ok) {
-                console.warn('[QuestSystem] Could not fetch local manifest for update check.');
-                return;
-            }
+            const manifestResponse = await fetch(`/${extensionFolderPath}/manifest.json?t=${Date.now()}`);
+            if (!manifestResponse.ok) return;
             const manifest = await manifestResponse.json();
-
             const homePage = manifest.homePage;
             const currentVersion = manifest.version;
 
-            if (!homePage || homePage.trim() === "") {
-                console.log('[QuestSystem] homePage not set in manifest.json, skipping update check.');
-                return;
-            }
+            if (!homePage || homePage.trim() === "") return;
 
-            // Construct the raw URL for package.json on the main branch
             const repoUrl = new URL(homePage);
             const rawUrl = `https://raw.githubusercontent.com${repoUrl.pathname}/main/package.json`;
-
-            console.log(`[QuestSystem] Checking for updates from ${rawUrl}`);
-
             const response = await fetch(rawUrl);
-            if (!response.ok) {
-                throw new Error(`Failed to fetch remote package.json: ${response.statusText}`);
-            }
+            if (!response.ok) return;
             const remotePackage = await response.json();
             const latestVersion = remotePackage.version;
 
-            console.log(`[QuestSystem] Current version: ${currentVersion}, Latest version: ${latestVersion}`);
-
-            // Using a simple string comparison, assuming SemVer-like strings.
             if (latestVersion > currentVersion) {
-                console.log('[QuestSystem] New version found!');
-                const updateMessage = `发现新版本: ${latestVersion}！请通过启动器或Git更新。`;
-                
-                // Show a toast notification to alert the user immediately.
-                toastr.info(updateMessage, '任务系统更新', {timeOut: 0, extendedTimeOut: 0, closeButton: true});
-
-            } else {
-                console.log('[QuestSystem] Extension is up to date.');
+                toastr.info(`发现新版本: ${latestVersion}！请通过启动器或Git更新。`, '任务系统更新', {timeOut: 0, extendedTimeOut: 0, closeButton: true});
             }
         } catch (error) {
             console.error('[QuestSystem] Update check failed:', error);
@@ -408,21 +379,11 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
     }
     
     // --- UI Functions ---
-
-    /**
-     * @brief Refreshes the quest popup's content if it's currently open.
-     * This is the single source of truth for UI updates.
-     */
     function refreshQuestPopupUI() {
-        // The popup is now a direct child of the body.
         const questPopup = $(`#${QUEST_POPUP_ID}`);
-
         if (questPopup.length > 0) {
-            // Generate the full new HTML for the popup's content
             const newHtml = createQuestPopupHtml();
-            // Replace the old popup with the new one
             questPopup.replaceWith(newHtml);
-            // Re-find the newly inserted element by its ID to bind events
             const newQuestPopup = $(`#${QUEST_POPUP_ID}`);
             if (newQuestPopup.length) {
                 bindQuestPopupEvents(newQuestPopup);
@@ -491,17 +452,15 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
         } else { html += `<p class="no-tasks">尚未完成任何任务。</p>`; }
         html += `</div>`;
 
-        html += `</div></div>`; // Close body and container
+        html += `</div></div>`;
         return html;
     }
     
     function bindQuestPopupEvents(popupContent$) {
-        // Use a single delegated event handler for all buttons inside the popup
         popupContent$.off('.questSystem').on('click.questSystem', '.quest-button, .quest-popup-close-button', async function(event) {
             event.stopPropagation();
             const button = $(this);
 
-            // Handle close button specifically
             if (button.hasClass('quest-popup-close-button')) {
                 closeQuestLogPopup();
                 return;
@@ -511,17 +470,9 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             const action = button.data('action');
             const taskId = button.data('task-id');
 
-            // Handle specific buttons by ID first
-            if (buttonId === 'trigger-ai-task-generation') {
-                await generateAndAddNewAiTask();
-                return;
-            }
-            if (buttonId === 'edit-ai-prompt-button') {
-                showPromptEditorPopup();
-                return;
-            }
+            if (buttonId === 'trigger-ai-task-generation') await generateAndAddNewAiTask();
+            if (buttonId === 'edit-ai-prompt-button') showPromptEditorPopup();
 
-            // Handle generic task actions
             if (action && taskId) {
                  if (action === 'accept') await acceptTask(taskId);
                  if (action === 'abandon') await abandonTask(taskId);
@@ -562,101 +513,132 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
     }
     
     function closeQuestLogPopup() {
-        console.log('[QuestSystem] closeQuestLogPopup called.');
         const popup = $(`#${QUEST_POPUP_ID}`);
         if (popup.length) {
-            console.log('[QuestSystem] Removing popup element.');
             popup.remove();
         }
     }
 
-    /**
-     * @brief Toggles the visibility of the quest popup.
-     * This function checks if the popup exists. If it does, it closes it.
-     * If it doesn't, it calls the function to create and show it.
-     * This prevents the popup from being re-rendered if it's already open.
-     */
     function toggleQuestLogPopup() {
-        console.log('[QuestSystem] toggleQuestLogPopup called.');
         const questPopup = $(`#${QUEST_POPUP_ID}`);
         if (questPopup.length > 0) {
-            console.log('[QuestSystem] Popup exists, calling closeQuestLogPopup.');
             closeQuestLogPopup();
         } else {
-            console.log('[QuestSystem] Popup does not exist, calling showQuestLogPopup.');
-            // No need to await here, as it's a fire-and-forget UI action.
             showQuestLogPopup();
         }
     }
 
     async function showQuestLogPopup() {
-        console.log('[QuestSystem] showQuestLogPopup called.');
-        if (!checkAPIs()) {
-            console.error('[QuestSystem] checkAPIs() failed in showQuestLogPopup.');
-            return;
-        }
-        
-        // Defensively close any existing popup to ensure a clean state.
-        console.log('[QuestSystem] Calling closeQuestLogPopup from showQuestLogPopup to ensure clean state.');
+        if (!checkAPIs()) return;
         closeQuestLogPopup();
-
-        // The task data is pre-loaded at initialization.
-        // We intentionally DO NOT call loadPlayerTasks() here to prevent
-        // the "get chat variables" log from appearing on every click.
-        console.log('[QuestSystem] Creating popup HTML.');
         const popupContentHtml = createQuestPopupHtml();
-        
-        console.log('[QuestSystem] Appending popup HTML to body.');
         $('body').append(popupContentHtml);
-
         const popupInstance = $(`#${QUEST_POPUP_ID}`);
         if (popupInstance.length) {
-            console.log('[QuestSystem] Popup instance found, binding events.');
             bindQuestPopupEvents(popupInstance);
-        } else {
-            console.error("[QuestSystem] Could not find quest popup instance to bind events after appending.");
         }
     }
     
+    function makeButtonDraggable(button) {
+        let isDragging = false;
+        let offset = { x: 0, y: 0 };
+
+        button.on('mousedown', function(e) {
+            // Prevent dragging when clicking on scrollbars or other elements
+            if (e.target !== button[0]) return;
+            isDragging = true;
+            offset.x = e.clientX - button.offset().left;
+            offset.y = e.clientY - button.offset().top;
+            button.css('cursor', 'grabbing');
+            // Prevent text selection while dragging
+            $('body').css('user-select', 'none');
+        });
+
+        $(document).on('mousemove', function(e) {
+            if (!isDragging) return;
+            let newX = e.clientX - offset.x;
+            let newY = e.clientY - offset.y;
+            
+            // Constrain to viewport
+            newX = Math.max(0, Math.min(newX, window.innerWidth - button.outerWidth()));
+            newY = Math.max(0, Math.min(newY, window.innerHeight - button.outerHeight()));
+
+            button.css({ top: newY + 'px', left: newX + 'px' });
+        });
+
+        $(document).on('mouseup', function() {
+            if (!isDragging) return;
+            isDragging = false;
+            button.css('cursor', 'grab');
+            $('body').css('user-select', 'auto');
+            // Save final position
+            localStorage.setItem(BUTTON_POSITION_KEY, JSON.stringify({ top: button.css('top'), left: button.css('left') }));
+        });
+        
+        // Prevent click event from firing after a drag
+        button.on('click', function(e) {
+            if (isDragging) {
+                e.stopImmediatePropagation();
+            }
+        });
+    }
+
     // --- Initialization ---
     async function initialize() {
         console.log('[QuestSystem] Initializing...');
-        if (!checkAPIs()) {
-            console.error("[QuestSystem] Initialization failed due to missing APIs.");
-            return;
-        }
+        if (!checkAPIs()) return;
 
-        // Load tasks once on startup to avoid logging on every click
-        console.log('[QuestSystem] Loading all task data...');
         await loadAllTaskData();
-        console.log('[QuestSystem] All task data loaded.');
+        check_for_update();
 
-        // Check for updates
-        console.log('[QuestSystem] Checking for updates...');
-        check_for_update(); // Intentionally not awaited
-
-        // Create a button in the UI as the entry point
+        // Create the button
         const buttonId = 'quest-log-entry-button';
         if ($(`#${buttonId}`).length === 0) {
-            console.log('[QuestSystem] Creating entry button.');
-            // Style is now controlled entirely by style.css
             const buttonHtml = `<div id="${buttonId}" title="任务日志" class="fa-solid fa-scroll"></div>`;
             $('body').append(buttonHtml);
-            // Bind the new toggle function to the button's click event.
-            // This ensures the popup opens and closes correctly on clicks.
-            console.log('[QuestSystem] Binding click event to entry button.');
-            $(`#${buttonId}`).on('click', toggleQuestLogPopup);
+            const questButton = $(`#${buttonId}`);
+            
+            // Make it draggable
+            makeButtonDraggable(questButton);
+            
+            // Set initial position and visibility
+            const savedPosition = JSON.parse(localStorage.getItem(BUTTON_POSITION_KEY));
+            if (savedPosition) {
+                questButton.css({ top: savedPosition.top, left: savedPosition.left });
+            } else {
+                // Default position if none is saved
+                questButton.css({ top: '60px', right: '10px', left: 'auto' });
+            }
+
+            const isVisible = localStorage.getItem(BUTTON_VISIBLE_KEY) !== 'false';
+            questButton.toggle(isVisible);
+            
+            // Bind the popup toggle to the button's click event.
+            questButton.on('click', toggleQuestLogPopup);
         }
+        
+        // Load settings and bind events
+        try {
+            const settingsHtml = await $.get(`${extensionFolderPath}/settings.html`);
+            $("#extensions_settings2").append(settingsHtml);
+            
+            // Bind the toggle switch in settings
+            const toggle = $('#quest-button-toggle');
+            const isVisible = localStorage.getItem(BUTTON_VISIBLE_KEY) !== 'false';
+            toggle.prop('checked', isVisible);
+
+            toggle.on('change', function() {
+                const visible = $(this).is(':checked');
+                localStorage.setItem(BUTTON_VISIBLE_KEY, visible);
+                $(`#${buttonId}`).toggle(visible);
+            });
+
+        } catch (error) {
+            console.error("加载任务系统扩展的 settings.html 失败：", error);
+        }
+
         toastr.success("任务系统(完整版)已加载！");
         console.log('[QuestSystem] Initialization complete.');
-    }
-
-    // Load settings from SillyTavern
-    try {
-        const settingsHtml = await $.get(`${extensionFolderPath}/settings.html`);
-        $("#extensions_settings2").append(settingsHtml);
-    } catch (error) {
-        console.error("加载任务系统扩展的 settings.html 失败：", error);
     }
 
     initialize();

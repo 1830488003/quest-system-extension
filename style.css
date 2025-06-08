@@ -233,27 +233,35 @@
 /* 任务日志入口按钮 */
 #quest-log-entry-button {
     position: fixed;
-    top: 10px;
-    right: 150px; /* Default for larger screens */
     z-index: 2147483645; /* High z-index but below popup */
-    cursor: pointer;
-    font-size: 24px;
-    color: var(--primary-accent-color);
-    padding: 5px;
-    background-color: rgba(44, 47, 51, 0.7);
+    cursor: grab;
+    width: 48px; /* Slightly larger for easier clicking */
+    height: 48px;
+    background: linear-gradient(145deg, #2f3338, #212529);
     border-radius: 50%;
-    width: 34px;
-    height: 34px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.2s, color 0.2s, background-color 0.2s;
+    color: var(--primary-accent-color);
+    font-size: 24px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3), 
+                inset 0 2px 2px rgba(255,255,255,0.05),
+                0 0 0 1px rgba(0,0,0,0.5);
+    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, color 0.2s ease-out;
+    /* Remove initial position from CSS, will be set by JS */
 }
 
 #quest-log-entry-button:hover {
     transform: scale(1.1);
-    background-color: var(--section-bg-color);
     color: var(--primary-accent-hover-color);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.4), 
+                inset 0 2px 3px rgba(255,255,255,0.08),
+                0 0 10px var(--primary-accent-color); /* Glow effect */
+}
+
+#quest-log-entry-button:active {
+    transform: scale(1.05);
+    cursor: grabbing;
 }
 
 /* Media query for smaller screens */
