@@ -1,19 +1,31 @@
 <div class="extension_settings" data-extension-name="quest-system-extension">
-    <div class="collapsible-header">
-        <i class="fa-solid fa-scroll"></i>
-        <h4>任务系统</h4>
-    </div>
-    <div class="collapsible-content">
-        <p>一个集成的任务日志系统，允许AI动态生成任务、判断任务完成情况。</p>
-        <p><b>作者:</b> 萧然 & Gemini & Cline</p>
-        <p><b>版本:</b> <span id="quest-system-version">1.2.0</span></p>
-        <div class="quest-system-setting-item">
-            <label for="quest-button-toggle">显示任务日志按钮</label>
-            <div class="SillyTavernSwitch">
-                <input id="quest-button-toggle" type="checkbox" checked>
-                <div class="SillyTavernSlider"></div>
+    <div class="inline-drawer">
+        <div class="inline-drawer-toggle inline-drawer-header">
+            <b>
+                <i class="fa-solid fa-scroll"></i>
+                任务系统
+            </b>
+            <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+        </div>
+        
+        <div class="inline-drawer-content">
+            <div class="quest-system-settings-panel">
+                <div class="quest-setting-item flex-container">
+                    <label for="quest-plugin-toggle">插件总开关 (控制浮动按钮)</label>
+                    <div class="SillyTavernSwitch">
+                        <input id="quest-plugin-toggle" type="checkbox" checked>
+                        <div class="SillyTavernSlider"></div>
+                    </div>
+                </div>
+                <div class="quest-setting-item flex-container">
+                    <label for="quest-edit-prompt-button">编辑AI任务指令</label>
+                    <button id="quest-edit-prompt-button" class="menu_button"><i class="fas fa-edit"></i> 编辑</button>
+                </div>
+            </div>
+            <div id="quest-system-panel-content">
+                <hr>
+                <p style="text-align:center; color: var(--text-muted-color);">通过主界面上的浮动按钮 <i class="fa-solid fa-scroll"></i> 来访问任务日志。</p>
             </div>
         </div>
-        <p>您可以通过主界面右上角的“扩展”菜单（九宫格图标）旁边的<i class="fa-solid fa-scroll"></i>图标来访问“任务日志”。</p>
     </div>
 </div>

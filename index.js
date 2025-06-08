@@ -10,7 +10,7 @@ jQuery(async () => {
     const OLD_PLAYER_QUEST_VARIABLE_KEY = 'player_active_quests_log'; // For migration
     const AI_DEFINED_TASKS_KEY = 'ai_defined_tasks_log_v1'; // For persisting available AI tasks
     const PROMPT_EDITOR_POPUP_ID = 'th-prompt-editor-popup-v049';
-    const BUTTON_VISIBLE_KEY = 'quest_button_visible_v1';
+    const PLUGIN_ENABLED_KEY = 'quest_plugin_enabled_v1'; // Renamed for clarity
     const BUTTON_POSITION_KEY = 'quest_button_position_v1';
 
 
@@ -594,12 +594,6 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
         console.log('[QuestSystem] Initializing...');
 
         // --- Self-Correction: Force remove potentially bugged visibility setting from old versions ---
-        // This ensures the button always appears on first load after an update, preventing persistent invisibility.
-        try {
-            localStorage.removeItem(BUTTON_VISIBLE_KEY);
-        } catch (e) {
-            console.error('[QuestSystem] Failed to remove stale visibility key, this is not critical.', e);
-        }
         // --- End of Self-Correction ---
 
         if (!checkAPIs()) return;
@@ -626,8 +620,8 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
                 questButton.css({ top: '60px', right: '10px', left: 'auto' });
             }
 
-            const isVisible = localStorage.getItem(BUTTON_VISIBLE_KEY) !== 'false';
-            questButton.toggle(isVisible);
+            const isPluginEnabled = localStorage.getItem(PLUGIN_ENABLED_KEY) !== 'false';
+            questButton.toggle(isPluginEnabled);
             
             // The click event is now handled inside makeButtonDraggable to distinguish between click and drag.
 
@@ -681,24 +675,40 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             });
         }
         
-        // Load settings and bind events
+        // Load settings and bind new standard panel events
         try {
             const settingsHtml = await $.get(`${extensionFolderPath}/settings.html`);
             $("#extensions_settings2").append(settingsHtml);
             
-            // Bind the toggle switch in settings
-            const toggle = $('#quest-button-toggle');
-            const isVisible = localStorage.getItem(BUTTON_VISIBLE_KEY) !== 'false';
-            toggle.prop('checked', isVisible);
+            const extensionSettings = $('.extension_settings[data-extension-name="quest-system-extension"]');
 
-            toggle.on('change', function() {
-                const visible = $(this).is(':checked');
-                localStorage.setItem(BUTTON_VISIBLE_KEY, visible);
-                $(`#${buttonId}`).toggle(visible);
+            // 1. Bind standard inline-drawer toggle
+            extensionSettings.find('.inline-drawer-toggle').on('click', function() {
+                $(this).closest('.inline-drawer').toggleClass('open');
             });
 
+            // 2. Bind plugin toggle switch
+            const pluginToggle = extensionSettings.find('#quest-plugin-toggle');
+            const isPluginEnabled = localStorage.getItem(PLUGIN_ENABLED_KEY) !== 'false';
+            pluginToggle.prop('checked', isPluginEnabled);
+
+            pluginToggle.on('change', function() {
+                const enabled = $(this).is(':checked');
+                localStorage.setItem(PLUGIN_ENABLED_KEY, enabled);
+                $(`#${buttonId}`).toggle(enabled);
+                toastr.info(`任务浮动按钮已${enabled ? '启用' : '禁用'}`);
+            });
+
+            // 3. Bind edit prompt button
+            extensionSettings.find('#quest-edit-prompt-button').on('click', function() {
+                showPromptEditorPopup();
+            });
+
+            // Make sure the drawer is closed by default
+            extensionSettings.find('.inline-drawer').removeClass('open');
+
         } catch (error) {
-            console.error("加载任务系统扩展的 settings.html 失败：", error);
+            console.error("加载任务系统扩展的 settings.html 或绑定事件失败：", error);
         }
 
         toastr.success("任务系统(完整版)已加载！");

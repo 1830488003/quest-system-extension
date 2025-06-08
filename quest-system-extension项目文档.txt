@@ -1,5 +1,80 @@
 # 任务系统扩展项目文档
 
+## 2025年6月9日 - 第三部分
+
+### 任务：精确复制标准扩展UI样式
+
+**问题描述：**
+经过上一轮修改后，用户反馈设置面板的UI样式虽然是可折叠的，但与系统中其他扩展的“标准”外观仍有差异。任务目标是1:1复刻标准扩展的UI。
+
+**根本原因分析：**
+我之前的实现是基于对截图的“模仿”，自己编写了HTML结构和CSS样式。然而，SillyTavern本身提供了一套用于扩展设置的标准化、可复用的UI组件（HTML结构和内置CSS类）。我没有使用这套标准，导致了视觉上的不一致。
+
+**修复方案与实施步骤：**
+
+我采取了“侦察-复制-适配”的策略，以确保最终结果的精确性：
+
+1.  **侦察标准实现**:
+    *   我检查了用户提供的目录 `D:\ai\酒馆\SillyTavern-release2\public\scripts\extensions\third-party`。
+    *   我选择 `ST-Prompt-Template` 插件作为参考模板，并仔细分析了其 `settings.html` 的文件结构。
+
+2.  **精确复制HTML结构 (`settings.html`)**:
+    *   我完全重写了我的 `settings.html` 文件，严格遵循了模板的结构。
+    *   关键的类名如 `inline-drawer`, `inline-drawer-toggle`, `inline-drawer-header`, `inline-drawer-content`, 和 `inline-drawer-icon` 被完全复制过来，确保能够正确应用SillyTavern的内置样式。
+
+3.  **清理冗余CSS (`style.css`)**:
+    *   我移除了上一版在 `style.css` 中添加的所有自定义面板样式（如 `.collapsible-header` 等），因为这些样式现在由SillyTavern的内置CSS处理，我的代码变得更加简洁且不会产生冲突。
+    *   只保留了面板内部元素（如设置项 `.quest-setting-item`）的微调样式。
+
+4.  **适配JavaScript逻辑 (`index.js`)**:
+    *   我更新了 `initialize()` 函数中的事件绑定逻辑。
+    *   点击事件现在被绑定到标准的 `.inline-drawer-toggle` 类上。
+    *   通过 `$(this).closest('.inline-drawer').toggleClass('open')` 来控制面板的展开和折叠，这正是SillyTavern处理该交互的标准方式。
+
+**最终结果：**
+通过直接采用并复现SillyTavern的标准UI组件结构，任务系统的设置面板现在与其他所有扩展在外观和交互上达到了像素级的统一。用户体验完全一致，任务圆满完成。
+
+---
+
+## 2025年6月9日 - 第二部分
+
+### 任务：改造设置UI，使其与其他扩展风格一致
+
+**问题描述：**
+用户指出，插件在扩展设置菜单中的UI与其他扩展格格不入。需要将其改造成一个风格统一、可折叠的面板，并在此面板内集成设置功能。
+
+**根本原因分析：**
+原有的 `settings.html` 只是一个简单的信息展示和单一的开关，缺乏标准的折叠面板结构和样式。JavaScript 逻辑也只为这个简单的开关服务，没有实现面板的交互功能。
+
+**改造方案与实施步骤：**
+
+我执行了一系列精确的UI和逻辑重构：
+
+1.  **重构HTML结构 (`settings.html`)**:
+    *   我完全重写了 `settings.html`，引入了标准的 `collapsible-header` 和 `collapsible-content` 结构。
+    *   头部包含了图标、标题和可旋转的箭头图标。
+    *   内容区域被划分为两部分：
+        *   **设置区 (`quest-system-settings-panel`)**: 包含了新的“插件总开关”（用于控制浮动按钮）和“编辑AI任务指令”按钮。
+        *   **内容区 (`quest-system-panel-content`)**: 这是一个占位符，用于将来可能的UI扩展。
+
+2.  **添加CSS样式 (`style.css`)**:
+    *   我向 `style.css` 文件中添加了新的样式规则，专门针对 `.extension_settings[data-extension-name="quest-system-extension"]`。
+    *   这些样式精确地定义了可折叠头部的背景、悬停效果、内边距，以及内容区域的边框和背景，确保了视觉上与其他扩展面板的统一。
+    *   我还添加了用于控制箭头在面板展开/折叠时旋转180度的 `transform` 动画。
+
+3.  **更新JavaScript逻辑 (`index.js`)**:
+    *   **移除旧逻辑**: 我删除了 `initialize()` 函数中加载旧 `settings.html` 并绑定旧开关的代码。
+    *   **绑定新交互**:
+        *   为 `.collapsible-header` 添加了 `click` 事件监听器，该监听器会切换内容区域的 `slideToggle()` 可见性，并为头部添加/移除 `open` 类以触发CSS中的箭头旋转动画。
+        *   将控制浮动按钮可见性的 `localStorage` 键从 `BUTTON_VISIBLE_KEY` 重命名为更清晰的 `PLUGIN_ENABLED_KEY`。
+        *   将新的“插件总开关” (`#quest-plugin-toggle`) 与 `PLUGIN_ENABLED_KEY` 和浮动按钮的显示/隐藏状态进行绑定。
+        *   将 `showPromptEditorPopup()` 函数的调用绑定到新的“编辑”按钮 (`#quest-edit-prompt-button`) 上。
+
+**最终结果：**
+通过以上修改，任务系统插件在扩展设置中的UI现在已经完全重构为一个美观、功能集成且风格统一的可折叠面板。用户可以方便地展开面板进行设置（开关插件、编辑指令），或将其折叠起来，保持了与其他扩展一致的用户体验。
+
+---
+
 ## 2025年6月9日
 
 ### 任务：修复弹窗在桌面视图中的定位问题

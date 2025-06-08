@@ -272,3 +272,20 @@
         top: 60px; /* Move down to avoid overlapping other top-right icons */
     }
 }
+
+/* --- 设置面板内的项目样式 --- */
+.quest-system-settings-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.quest-setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.quest-setting-item label {
+    color: var(--text-muted-color);
+}
