@@ -621,47 +621,77 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
         let wasDragged = false;
         let offset = { x: 0, y: 0 };
 
-        button.on('mousedown', function(e) {
+        // 统一获取事件坐标（兼容鼠标和触摸）
+        function getEventCoords(e) {
+            // 对于触摸事件，e.originalEvent.touches[0] 包含了坐标
+            if (e.type.startsWith('touch')) {
+                return { x: e.originalEvent.touches[0].clientX, y: e.originalEvent.touches[0].clientY };
+            }
+            // 对于鼠标事件，直接从 e 获取
+            return { x: e.clientX, y: e.clientY };
+        }
+
+        // 拖动开始的处理函数
+        function dragStart(e) {
             if (e.target !== button[0]) return;
             isDragging = true;
-            wasDragged = false; // Reset drag flag on new mousedown
-            offset.x = e.clientX - button.offset().left;
-            offset.y = e.clientY - button.offset().top;
+            wasDragged = false;
+            const coords = getEventCoords(e);
+            offset.x = coords.x - button.offset().left;
+            offset.y = coords.y - button.offset().top;
             button.css('cursor', 'grabbing');
-            $('body').css('user-select', 'none');
-        });
+            $('body').css({
+                'user-select': 'none',
+                '-webkit-user-select': 'none' // 兼容旧版 WebKit
+            });
+        }
 
-        $(document).on('mousemove', function(e) {
+        // 拖动过程中的处理函数
+        function dragMove(e) {
             if (!isDragging) return;
-            wasDragged = true; // It's a drag if the mouse moves while down
+            e.preventDefault(); // 阻止触摸时的页面滚动
+            wasDragged = true;
             
-            let newX = e.clientX - offset.x;
-            let newY = e.clientY - offset.y;
+            const coords = getEventCoords(e);
+            let newX = coords.x - offset.x;
+            let newY = coords.y - offset.y;
             
-            // Constrain to viewport
+            // 限制在视口内
             newX = Math.max(0, Math.min(newX, window.innerWidth - button.outerWidth()));
             newY = Math.max(0, Math.min(newY, window.innerHeight - button.outerHeight()));
 
             button.css({ top: newY + 'px', left: newX + 'px', right: '', bottom: '' });
-        });
+        }
 
-        $(document).on('mouseup', function() {
+        // 拖动结束的处理函数
+        function dragEnd() {
             if (!isDragging) return;
             isDragging = false;
             button.css('cursor', 'grab');
-            $('body').css('user-select', 'auto');
-            // Save final position
-            localStorage.setItem(BUTTON_POSITION_KEY, JSON.stringify({ top: button.css('top'), left: button.css('left') }));
-        });
+            $('body').css({
+                'user-select': 'auto',
+                '-webkit-user-select': 'auto'
+            });
+            // 只有在实际拖动后才保存位置
+            if (wasDragged) {
+                localStorage.setItem(BUTTON_POSITION_KEY, JSON.stringify({ top: button.css('top'), left: button.css('left') }));
+            }
+        }
+
+        // 为按钮绑定鼠标和触摸事件
+        button.on('mousedown touchstart', dragStart);
+        $(document).on('mousemove touchmove', dragMove);
+        $(document).on('mouseup touchend', dragEnd);
         
-        // This is the click handler that decides whether to open the popup.
+        // 单击事件处理
         button.on('click', function(e) {
-            // If the button was dragged, don't open the popup.
+            // 如果按钮被拖动了，则阻止单击事件（不打开弹窗）
             if (wasDragged) {
                 e.stopPropagation();
+                e.preventDefault();
                 return;
             }
-            // Otherwise, it's a genuine click, so toggle the popup.
+            // 否则，这是一个真正的单击，切换弹窗
             toggleQuestLogPopup();
         });
     }
