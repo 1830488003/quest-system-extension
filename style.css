@@ -297,6 +297,13 @@
     margin: 0;
 }
 
+.quest-system-about-panel p {
+    color: var(--text-muted-color);
+    margin: 5px 0;
+    text-align: center;
+    font-size: 0.9em;
+}
+
 .update-indicator {
     display: inline-block;
     width: 10px;

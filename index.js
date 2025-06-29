@@ -6,11 +6,18 @@ jQuery(async () => {
     
     // --- Configuration & Constants ---
     const QUEST_POPUP_ID = 'th-quest-system-popup-v049'; // Use a versioned ID
-    const PLAYER_QUEST_VARIABLE_KEY = 'player_active_quests_log_v2';
-    const OLD_PLAYER_QUEST_VARIABLE_KEY = 'player_active_quests_log'; // For migration
-    const AI_DEFINED_TASKS_KEY = 'ai_defined_tasks_log_v1'; // For persisting available AI tasks
+    // --- Storage Keys ---
+    // 旧的基于聊天会话的存储键，用于数据迁移
+    const PLAYER_QUEST_VARIABLE_KEY_OLD = 'player_active_quests_log_v2'; 
+    const AI_DEFINED_TASKS_KEY_OLD = 'ai_defined_tasks_log_v1';
+    
+    // 新的基于 localStorage 的全局存储键
+    const PLAYER_QUESTS_LOCAL_KEY = 'quest_system_player_tasks_v1';
+    const DEFINED_QUESTS_LOCAL_KEY = 'quest_system_defined_tasks_v1';
+    const CUSTOM_PROMPT_LOCAL_KEY = 'quest_system_custom_prompt_v1';
+
     const PROMPT_EDITOR_POPUP_ID = 'th-prompt-editor-popup-v049';
-    const PLUGIN_ENABLED_KEY = 'quest_plugin_enabled_v1'; // Renamed for clarity
+    const PLUGIN_ENABLED_KEY = 'quest_plugin_enabled_v1';
     const BUTTON_POSITION_KEY = 'quest_button_position_v1';
 
 
@@ -67,6 +74,7 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
     let definedTasks = []; // Holds AI-generated tasks, now persisted across sessions
     let playerTasksStatus = {}; // Persisted in chat variables
     let currentUserModifiedEditablePromptCore = DEFAULT_EDITABLE_PROMPT_CORE_CN;
+    let currentChatFileIdentifier = "unknown_chat_init"; // Tracks the current chat file
 
     // A helper to safely escape HTML
     const escapeHtml = (unsafe) => {
@@ -108,81 +116,145 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
         }
     }
 
-    // --- Data Management ---
+    // --- Chat & Data Management (Character-Specific) ---
 
+    /**
+     * Cleans a chat filename by removing the path and extension.
+     * @param {string} fileName - The original filename.
+     * @returns {string} The cleaned filename.
+     */
+    function cleanChatName(fileName) {
+        if (!fileName || typeof fileName !== 'string') return "unknown_chat_source";
+        let cleanedName = fileName;
+        if (fileName.includes("/") || fileName.includes("\\")) {
+            const parts = fileName.split(/[\\/]/);
+            cleanedName = parts[parts.length - 1];
+        }
+        return cleanedName.replace(/\.jsonl$/, "").replace(/\.json$/, "");
+    }
+
+    /**
+     * Gets the latest chat filename identifier.
+     * @returns {Promise<string>} The latest chat filename.
+     */
+    async function getLatestChatName() {
+        let newChatFileIdentifier = "unknown_chat_fallback";
+        try {
+            let chatNameFromCommand = null;
+            if (TavernHelper && typeof TavernHelper.triggerSlash === 'function') {
+                chatNameFromCommand = await TavernHelper.triggerSlash("/getchatname");
+            }
+
+            if (chatNameFromCommand && typeof chatNameFromCommand === 'string' && chatNameFromCommand.trim() && chatNameFromCommand.trim() !== 'null' && chatNameFromCommand.trim() !== 'undefined') {
+                newChatFileIdentifier = cleanChatName(chatNameFromCommand.trim());
+            } else {
+                const contextFallback = SillyTavern.getContext ? SillyTavern.getContext() : null;
+                if (contextFallback && contextFallback.chat && typeof contextFallback.chat === 'string') {
+                    const chatNameFromContext = cleanChatName(contextFallback.chat);
+                    if (chatNameFromContext && !chatNameFromContext.startsWith("unknown_chat")) {
+                        newChatFileIdentifier = chatNameFromContext;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error(`[QuestSystem] Error getting chat name:`, error);
+        }
+        return newChatFileIdentifier;
+    }
+
+    // Generates localStorage keys specific to the current character.
+    const getPlayerQuestsKey = () => `${PLAYER_QUESTS_LOCAL_KEY}_${currentChatFileIdentifier}`;
+    const getDefinedQuestsKey = () => `${DEFINED_QUESTS_LOCAL_KEY}_${currentChatFileIdentifier}`;
+    const getCustomPromptKey = () => `${CUSTOM_PROMPT_LOCAL_KEY}_${currentChatFileIdentifier}`;
+
+    /**
+     * Loads all task data from localStorage for the current character.
+     * Includes a one-time migration from old chat variables.
+     */
     async function loadAllTaskData() {
         if (!checkAPIs()) return;
-        
+
+        let migrationNeeded = false;
+        let migratedPlayerTasks = {};
+        let migratedDefinedTasks = [];
+
+        // Step 1: Check for old data in chat variables for migration.
         try {
             const variables = await TavernHelper.getVariables({ type: 'chat' });
-            
-            // 1. Load Player's Task Status (with migration from v1)
-            let rawPlayerTasks = variables ? variables[PLAYER_QUEST_VARIABLE_KEY] : null;
-            let oldRawPlayerTasks = variables ? variables[OLD_PLAYER_QUEST_VARIABLE_KEY] : null;
+            const oldPlayerTasksRaw = variables ? variables[PLAYER_QUEST_VARIABLE_KEY_OLD] : null;
+            const oldDefinedTasksRaw = variables ? variables[AI_DEFINED_TASKS_KEY_OLD] : null;
 
-            if (rawPlayerTasks) {
-                try {
-                    playerTasksStatus = JSON.parse(rawPlayerTasks);
-                } catch (e) {
-                    console.warn('[QuestSystem] Failed to parse player tasks. Resetting.', e);
-                    playerTasksStatus = {};
-                }
-            } else if (oldRawPlayerTasks) {
-                console.log('[QuestSystem] Old player task data found. Migrating...');
-                toastr.info('检测到旧版已接受任务，正在迁移...');
-                try {
-                    playerTasksStatus = JSON.parse(oldRawPlayerTasks);
-                    // Don't save yet, will be saved monolithically later
-                } catch (e) {
-                    playerTasksStatus = {};
-                }
-            } else {
-                playerTasksStatus = {};
+            if (oldPlayerTasksRaw) {
+                migratedPlayerTasks = JSON.parse(oldPlayerTasksRaw);
+                migrationNeeded = true;
+            }
+            if (oldDefinedTasksRaw) {
+                migratedDefinedTasks = JSON.parse(oldDefinedTasksRaw);
+                migrationNeeded = true;
             }
 
-            // 2. Load Defined AI Tasks
-            let rawDefinedTasks = variables ? variables[AI_DEFINED_TASKS_KEY] : null;
-            if (rawDefinedTasks) {
-                try {
-                    definedTasks = JSON.parse(rawDefinedTasks);
-                } catch (e) {
-                    console.warn('[QuestSystem] Failed to parse defined AI tasks. Resetting.', e);
-                    definedTasks = [];
-                }
+            if (migrationNeeded) {
+                console.log('[QuestSystem] Old chat-based data found. Preparing for migration to localStorage.');
+                toastr.info('检测到旧版任务数据，将自动迁移至新版角色专属存储。');
+            }
+        } catch (error) {
+            console.error('[QuestSystem] Error checking for old data for migration:', error);
+            migrationNeeded = false; // Don't migrate if there's an error.
+        }
+
+        // Step 2: Load data from localStorage or use migrated data.
+        try {
+            const playerTasksRaw = localStorage.getItem(getPlayerQuestsKey());
+            const definedTasksRaw = localStorage.getItem(getDefinedQuestsKey());
+            const customPromptRaw = localStorage.getItem(getCustomPromptKey());
+
+            if (migrationNeeded) {
+                playerTasksStatus = migratedPlayerTasks;
+                definedTasks = migratedDefinedTasks;
             } else {
-                definedTasks = [];
+                playerTasksStatus = playerTasksRaw ? JSON.parse(playerTasksRaw) : {};
+                definedTasks = definedTasksRaw ? JSON.parse(definedTasksRaw) : [];
             }
             
-            // 3. If migration happened, save everything and clear old key
-            if (oldRawPlayerTasks) {
-                await saveAllTaskData(false); // Save without refreshing UI yet
-                await TavernHelper.insertOrAssignVariables({ [OLD_PLAYER_QUEST_VARIABLE_KEY]: null }, { type: 'chat' });
-                console.log('[QuestSystem] Migration successful. Old data key cleared.');
-                toastr.success('已接受的任务迁移成功！');
-            }
+            currentUserModifiedEditablePromptCore = customPromptRaw || DEFAULT_EDITABLE_PROMPT_CORE_CN;
 
         } catch (error) {
-            console.error('[QuestSystem] Critical error during task loading:', error);
-            toastr.error(`加载任务数据时发生严重错误: ${error.message}`);
+            console.error('[QuestSystem] Error loading data from localStorage:', error);
+            toastr.error(`从本地存储加载任务数据失败: ${error.message}`);
             playerTasksStatus = {};
             definedTasks = [];
+            currentUserModifiedEditablePromptCore = DEFAULT_EDITABLE_PROMPT_CORE_CN;
+        }
+        
+        // Step 3: If migration occurred, save to new location and clear old data.
+        if (migrationNeeded) {
+            await saveAllTaskData(false); // Save to localStorage
+            await TavernHelper.insertOrAssignVariables({ 
+                [PLAYER_QUEST_VARIABLE_KEY_OLD]: null,
+                [AI_DEFINED_TASKS_KEY_OLD]: null
+            }, { type: 'chat' });
+            console.log('[QuestSystem] Migration successful. Old chat variable data cleared.');
+            toastr.success('任务数据迁移成功！');
         }
     }
 
+    /**
+     * Saves all task data to localStorage for the current character.
+     * @param {boolean} refreshUI - Whether to refresh the UI after saving.
+     */
     async function saveAllTaskData(refreshUI = true) {
         if (!checkAPIs()) return;
         try {
-            await TavernHelper.insertOrAssignVariables({ 
-                [PLAYER_QUEST_VARIABLE_KEY]: JSON.stringify(playerTasksStatus),
-                [AI_DEFINED_TASKS_KEY]: JSON.stringify(definedTasks)
-            }, { type: 'chat' });
+            localStorage.setItem(getPlayerQuestsKey(), JSON.stringify(playerTasksStatus));
+            localStorage.setItem(getDefinedQuestsKey(), JSON.stringify(definedTasks));
+            localStorage.setItem(getCustomPromptKey(), currentUserModifiedEditablePromptCore);
             
             if (refreshUI) {
                 refreshQuestPopupUI();
             }
         } catch (error) {
-            console.error('[QuestSystem] Error saving all task data:', error);
-            toastr.error(`保存所有任务数据时出错: ${error.message}`);
+            console.error('[QuestSystem] Error saving data to localStorage:', error);
+            toastr.error(`保存任务数据到本地存储时出错: ${error.message}`);
         }
     }
 
@@ -575,16 +647,18 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             const popupInstance = $(`#${PROMPT_EDITOR_POPUP_ID}`).closest('dialog[open]');
             if (!popupInstance.length) return;
 
-            popupInstance.find('#save-custom-prompt-button').on('click.questEditor', function() {
+            popupInstance.find('#save-custom-prompt-button').on('click.questEditor', async function() {
                 currentUserModifiedEditablePromptCore = popupInstance.find('#ai-prompt-editor-textarea').val();
-                toastr.success("核心指令已保存！");
+                await saveAllTaskData(false); // Save all data including the new prompt
+                toastr.success("核心指令已为当前角色保存！");
                 popupInstance.find('.popup_close').trigger('click');
             });
 
-            popupInstance.find('#restore-default-prompt-button').on('click.questEditor', function() {
+            popupInstance.find('#restore-default-prompt-button').on('click.questEditor', async function() {
                 currentUserModifiedEditablePromptCore = DEFAULT_EDITABLE_PROMPT_CORE_CN;
                 popupInstance.find('#ai-prompt-editor-textarea').val(DEFAULT_EDITABLE_PROMPT_CORE_CN);
-                toastr.info("核心指令已恢复为默认设置。");
+                await saveAllTaskData(false); // Save all data including the default prompt
+                toastr.info("核心指令已为当前角色恢复为默认设置。");
             });
         }, 300);
     }
@@ -697,15 +771,33 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
     }
 
     // --- Initialization ---
+
+    /**
+     * Resets the script's state when a new chat is detected.
+     * This involves reloading all data for the new character.
+     */
+    async function resetForNewChat() {
+        const newChatName = await getLatestChatName();
+        if (newChatName !== currentChatFileIdentifier) {
+            console.log(`[QuestSystem] Chat switched from "${currentChatFileIdentifier}" to "${newChatName}". Reloading data.`);
+            toastr.info(`任务日志已切换至角色: ${newChatName}`);
+            currentChatFileIdentifier = newChatName;
+            await loadAllTaskData(); // Load data for the new character
+            refreshQuestPopupUI(); // Refresh the UI if it's open
+        }
+    }
+
     async function initialize() {
         console.log('[QuestSystem] Initializing...');
 
-        // --- Self-Correction: Force remove potentially bugged visibility setting from old versions ---
-        // --- End of Self-Correction ---
-
         if (!checkAPIs()) return;
 
+        // Initial load
+        currentChatFileIdentifier = await getLatestChatName();
         await loadAllTaskData();
+
+        // Set up a poller to detect chat switches
+        setInterval(resetForNewChat, 2000); // Check every 2 seconds
 
         // Create the button
         const buttonId = 'quest-log-entry-button';
