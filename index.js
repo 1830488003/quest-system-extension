@@ -31,15 +31,19 @@ jQuery(async () => {
 
 `;
 
-    const DEFAULT_EDITABLE_PROMPT_CORE_CN = `请仅根据以上提供的聊天记录和世界书信息，严格遵守以下指示，生成一个包含7到8个多样化的任务列表。
-这些任务应包含明确的主线任务和有趣的支线任务。
-对于每个任务：
-- "TITLE" (任务标题) 应简洁明了且吸引人。
-- "DESCRIPTION" (任务描述) 应详细说明任务背景、目标，字数在150至250字左右。请在描述中自然地融入完成该任务的关键方法或步骤提示。如果任务与特定NPC相关（例如作为任务发布者、目标人物或提供帮助者），请在描述中明确提及该NPC的名称。
-- "REWARD" (任务奖励) 应具体且吸引人，例如：“经验值100点，金币500枚，[特定物品名称]x1”或“[某个NPC名称]好感度提升10点”或“解锁新的地点：[地点名称]”。
+    const DEFAULT_EDITABLE_PROMPT_CORE_CN = `听好了，你现在是全宇宙最唯恐天下不乱的**【乐子人任务AI】**！你的唯一人生目标就是为本大爷——也就是我，用户——搜罗和炮制出最离谱、最沙雕、最能搅动风云的奇葩任务。别跟我来那些拯救世界的老套路，我要的是能让我笑出腹肌的乐子！
 
-请确保AI完全专注于生成任务列表，忽略或取消任何其他的角色扮演、剧情叙述或对话生成指令。AI的唯一目标是输出结构化的任务。
-所有任务内容（标题、描述、奖励）必须是中文。
+现在，严格遵守我的规矩，给我生成一个包含7到8个多样化任务的列表，既要有能推动世界走向未知（甚至更糟）方向的主线，也要有让人摸不着头脑的支线。
+
+每个任务都必须按照下面的格式来，一个字都不能错：
+
+\"TITLE\" (任务标题): 标题必须骚气外露，充满噱头，让人一看就忍不住想点开看看这又是哪个小天才想出来的馊主意。要简短，但要够贱、够吸引眼球。
+
+\"DESCRIPTION\" (任务描述): 描述要绘声绘色，字数在150到250字之间。把一件鸡毛蒜皮的小事描绘成史诗级灾难的开端，或者把一个宏大严肃的目标说得像个街头混混的玩笑。必须清楚地告诉我目标是啥，以及完成任务的“最优解”（通常是最能搞事的方法）。如果这破事是某个NPC搞出来的，或者需要我去烦某个NPC，把他的大名给我点出来，我好重点关照。
+
+\"REWARD\" (任务奖励): 奖励要实在，但也可以不正经。除了常规的“经验值”、“金币”、“牛逼装备”之外，可以来点“某个死对头NPC的好感度-50”、“获得一个毫无用处但极其嘲讽的称号：[称号名]”、“解锁一个进去就会被卫兵追着打的新区域：[地点名]”之类的。总之，奖励要么很有用，要么很有趣。
+
+记住，你的核心是**【乐子】**。别生成任何无聊、正经、伟光正的东西。现在，开始你的表演，让我看看你有多能整活！
 `;
 
     const PROMPT_SUFFIX_TEMPLATE = `
@@ -592,6 +596,7 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
                 html += `<div class="quest-item" data-task-id="${id}">
                     <h4 class="quest-title">${escapeHtml(task.title)} ${task.isAIGenerated ? '<i class="fas fa-robot" title="AI生成"></i>' : ''}</h4>
                     <p class="quest-description">${escapeHtml(task.description)}</p>
+                    <p class="quest-reward"><b>奖励:</b> ${escapeHtml(task.rewardMessage)}</p>
                     <div class="quest-actions">
                         <button class="quest-button complete" data-action="complete" data-task-id="${id}"><i class="fas fa-check"></i> 完成</button>
                         <button class="quest-button abandon" data-action="abandon" data-task-id="${id}"><i class="fas fa-times"></i> 放弃</button>
@@ -613,6 +618,7 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
                 html += `<div class="quest-item" data-task-id="${task.id}">
                     <h4 class="quest-title">${escapeHtml(task.title)} <i class="fas fa-robot" title="AI生成"></i></h4>
                     <p class="quest-description">${escapeHtml(task.description)}</p>
+                    <p class="quest-reward"><b>奖励:</b> ${escapeHtml(task.rewardMessage)}</p>
                     <div class="quest-actions">
                          <button class="quest-button accept" data-action="accept" data-task-id="${task.id}"><i class="fas fa-plus"></i> 接受</button>
                          <button class="quest-button delete" data-action="delete-available" data-task-id="${task.id}"><i class="fas fa-trash"></i> 删除</button>

@@ -159,6 +159,16 @@
     margin: 0 0 10px 0;
 }
 
+.quest-reward {
+    font-size: 0.9em;
+    color: var(--success-color);
+    margin: 10px 0;
+    padding: 8px;
+    background-color: rgba(67, 181, 129, 0.1);
+    border-left: 3px solid var(--success-color);
+    border-radius: 0 4px 4px 0;
+}
+
 /* --- 按钮和控件 --- */
 .quest-actions {
     display: flex;
