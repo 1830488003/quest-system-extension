@@ -186,12 +186,12 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
         try {
             await TavernHelper.createChatMessages([{
                 role: 'system',
-                name: '任务系统',
+                name: '万能生成插件',
                 message: messageContent,
                 is_hidden: false
             }], { refresh: 'affected' });
         } catch (error) {
-            console.error('[QuestSystem] Error injecting system message:', error);
+            console.error('[UniversalGenerator] Error injecting system message:', error);
             toastr.error(`注入系统消息失败: ${error.message}`);
         }
     }
@@ -284,11 +284,11 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             }
 
             if (migrationNeeded) {
-                console.log('[QuestSystem] Old chat-based data found. Preparing for migration to localStorage.');
+                console.log('[UniversalGenerator] Old chat-based data found. Preparing for migration to localStorage.');
                 toastr.info('检测到旧版任务数据，将自动迁移至新版角色专属存储。');
             }
         } catch (error) {
-            console.error('[QuestSystem] Error checking for old data for migration:', error);
+            console.error('[UniversalGenerator] Error checking for old data for migration:', error);
             migrationNeeded = false; // Don't migrate if there's an error.
         }
 
@@ -332,7 +332,7 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             currentUserModifiedPlotPromptCore = customPlotPromptRaw || DEFAULT_PLOT_PROMPT_CORE_CN;
 
         } catch (error) {
-            console.error('[QuestSystem] Error loading data from localStorage:', error);
+            console.error('[UniversalGenerator] Error loading data from localStorage:', error);
             toastr.error(`从本地存储加载数据失败: ${error.message}`);
             playerTasksStatus = {};
             definedTasks = [];
@@ -355,7 +355,7 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
                 [PLAYER_QUEST_VARIABLE_KEY_OLD]: null,
                 [AI_DEFINED_TASKS_KEY_OLD]: null
             }, { type: 'chat' });
-            console.log('[QuestSystem] Migration successful. Old chat variable data cleared.');
+            console.log('[UniversalGenerator] Migration successful. Old chat variable data cleared.');
             toastr.success('任务数据迁移成功！');
         }
     }
@@ -384,7 +384,7 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
                 refreshQuestPopupUI();
             }
         } catch (error) {
-            console.error('[QuestSystem] Error saving data to localStorage:', error);
+            console.error('[UniversalGenerator] Error saving data to localStorage:', error);
             toastr.error(`保存数据到本地存储时出错: ${error.message}`);
         }
     }
@@ -2103,8 +2103,8 @@ EFFECT: [物品的中文效果描述]
     async function resetForNewChat() {
         const newChatName = await getLatestChatName();
         if (newChatName !== currentChatFileIdentifier) {
-            console.log(`[QuestSystem] Chat switched from "${currentChatFileIdentifier}" to "${newChatName}". Reloading data.`);
-            toastr.info(`任务日志已切换至角色: ${newChatName}`);
+            console.log(`[UniversalGenerator] Chat switched from "${currentChatFileIdentifier}" to "${newChatName}". Reloading data.`);
+            toastr.info(`万能生成器已切换至角色: ${newChatName}`);
             currentChatFileIdentifier = newChatName;
             await loadAllTaskData(); // Load data for the new character
             refreshQuestPopupUI(); // Refresh the UI if it's open
@@ -2112,7 +2112,7 @@ EFFECT: [物品的中文效果描述]
     }
 
     async function initialize() {
-        console.log('[QuestSystem] Initializing...');
+        console.log('[UniversalGenerator] Initializing...');
 
         if (!checkAPIs()) return;
 
@@ -2126,7 +2126,7 @@ EFFECT: [物品的中文效果描述]
         // Create the button
         const buttonId = 'quest-log-entry-button';
         if ($(`#${buttonId}`).length === 0) {
-            const buttonHtml = `<div id="${buttonId}" title="任务日志" class="fa-solid fa-scroll"></div>`;
+            const buttonHtml = `<div id="${buttonId}" title="万能生成器" class="fa-solid fa-wand-magic-sparkles"></div>`;
             $('body').append(buttonHtml);
             const questButton = $(`#${buttonId}`);
             
@@ -2218,13 +2218,14 @@ EFFECT: [物品的中文效果描述]
                 const enabled = $(this).is(':checked');
                 localStorage.setItem(PLUGIN_ENABLED_KEY, enabled);
                 $(`#${buttonId}`).toggle(enabled);
-                toastr.info(`任务浮动按钮已${enabled ? '启用' : '禁用'}`);
+                toastr.info(`万能生成器浮动按钮已${enabled ? '启用' : '禁用'}`);
             });
 
-            // 3. Bind edit prompt button
-            extensionSettings.find('#quest-edit-prompt-button').on('click', function() {
-                showPromptEditorPopup();
-            });
+            // 3. Bind edit prompt buttons
+            extensionSettings.find('#quest-edit-prompt-button').on('click', () => showPromptEditorPopup('task'));
+            extensionSettings.find('#quest-edit-item-prompt-button').on('click', () => showPromptEditorPopup('item'));
+            extensionSettings.find('#quest-edit-char-prompt-button').on('click', () => showPromptEditorPopup('char'));
+            extensionSettings.find('#quest-edit-plot-prompt-button').on('click', () => showPromptEditorPopup('plot'));
             
             // 4. Bind update button and run initial check
             extensionSettings.find('#quest-check-update-button').on('click', () => Updater.checkForUpdates(true));
@@ -2234,11 +2235,11 @@ EFFECT: [物品的中文效果描述]
             extensionSettings.find('.inline-drawer').removeClass('open');
 
         } catch (error) {
-            console.error("加载任务系统扩展的 settings.html 或绑定事件失败：", error);
+            console.error("加载万能生成插件的 settings.html 或绑定事件失败：", error);
         }
 
-        toastr.success("任务系统(完整版)已加载！");
-        console.log('[QuestSystem] Initialization complete.');
+        toastr.success("万能生成插件(完整版)已加载！");
+        console.log('[UniversalGenerator] Initialization complete.');
     }
 
     /**
@@ -2247,7 +2248,7 @@ EFFECT: [物品的中文效果描述]
      */
     function runWhenReady() {
         if (typeof jQuery !== 'undefined' && typeof SillyTavern !== 'undefined' && typeof TavernHelper !== 'undefined' && typeof toastr !== 'undefined' && SillyTavern.getContext) {
-            console.log('[QuestSystem] All APIs are ready. Initializing...');
+            console.log('[UniversalGenerator] All APIs are ready. Initializing...');
             initialize();
         } else {
             // APIs are not ready yet, check again in 100ms.

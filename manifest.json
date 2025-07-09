@@ -1,7 +1,7 @@
 {
   "display_name": "万能生成插件",
   "author": "萧然 & Gemini & Cline",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "description": "一个集成了任务、物品、人物和剧情生成的通用插件。",
   "loading_order": 1002,
   "js": "index.js",
