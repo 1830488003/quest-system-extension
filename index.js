@@ -312,6 +312,80 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
         toastr.info(`任务已放弃: ${abandonedTask.title}`);
     }
 
+    async function saveTaskChanges(taskId, newTitle, newDescription, newReward) {
+        if (!checkAPIs()) return;
+
+        let task, isPlayerTask = false;
+
+        if (playerTasksStatus[taskId]) {
+            task = playerTasksStatus[taskId];
+            isPlayerTask = true;
+        } else {
+            const taskIndex = definedTasks.findIndex(t => t.id === taskId);
+            if (taskIndex !== -1) {
+                task = definedTasks[taskIndex];
+            }
+        }
+
+        if (!task) {
+            toastr.error("无法找到要保存的任务！");
+            return;
+        }
+
+        // 更新任务数据
+        task.title = newTitle;
+        task.description = newDescription;
+        task.rewardMessage = newReward;
+
+        await saveAllTaskData(); // 保存所有数据并刷新UI
+
+        if (isPlayerTask) {
+            const message = `【任务变更】\n玩家修改了任务 "${newTitle}" 的内容。\n新描述: ${newDescription}\n新奖励: ${newReward}`;
+            await injectSystemMessage(message);
+        }
+
+        toastr.success(`任务 "${newTitle}" 已成功保存！`);
+    }
+
+    function toggleEditMode(taskId) {
+        const questItem = $(`.quest-item[data-task-id="${taskId}"]`);
+        if (questItem.hasClass('editing')) {
+            // 从编辑模式切换回显示模式
+            const titleInput = questItem.find('.edit-title').val();
+            const descTextarea = questItem.find('.edit-description').val();
+            const rewardTextarea = questItem.find('.edit-reward').val();
+
+            questItem.find('.quest-title').html(escapeHtml(titleInput) + (playerTasksStatus[taskId] || definedTasks.find(t=>t.id===taskId))?.isAIGenerated ? ' <i class="fas fa-robot" title="AI生成"></i>' : '').show();
+            questItem.find('.quest-description').text(descTextarea).show();
+            questItem.find('.quest-reward').html(`<b>奖励:</b> ${escapeHtml(rewardTextarea)}`).show();
+
+            questItem.find('.quest-content-edit').remove();
+            questItem.find('.quest-actions .edit').show();
+            questItem.find('.quest-actions .save').remove();
+            questItem.removeClass('editing');
+        } else {
+            // 从显示模式切换到编辑模式
+            const title = questItem.find('.quest-title').text().trim();
+            const description = questItem.find('.quest-description').text().trim();
+            const reward = (questItem.find('.quest-reward').html() || '').replace(/<b>奖励:<\/b>\s*/, '').trim();
+
+            questItem.find('.quest-title, .quest-description, .quest-reward').hide();
+
+            const editHtml = `
+                <div class="quest-content-edit">
+                    <input type="text" class="edit-title" value="${escapeHtml(title)}" />
+                    <textarea class="edit-description">${escapeHtml(description)}</textarea>
+                    <textarea class="edit-reward">${escapeHtml(reward)}</textarea>
+                </div>
+            `;
+            questItem.find('.quest-title').after(editHtml);
+
+            questItem.find('.quest-actions .edit').hide();
+            questItem.find('.quest-actions').append('<button class="quest-button save" data-action="save" data-task-id="' + taskId + '"><i class="fas fa-save"></i> 保存</button>');
+            questItem.addClass('editing');
+        }
+    }
+
     async function deleteAvailableTask(taskId) {
         if (!checkAPIs()) return;
         const taskIndex = definedTasks.findIndex(t => t.id === taskId);
@@ -600,6 +674,7 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
                     <div class="quest-actions">
                         <button class="quest-button complete" data-action="complete" data-task-id="${id}"><i class="fas fa-check"></i> 完成</button>
                         <button class="quest-button abandon" data-action="abandon" data-task-id="${id}"><i class="fas fa-times"></i> 放弃</button>
+                        <button class="quest-button edit" data-action="edit" data-task-id="${id}"><i class="fas fa-edit"></i> 编辑</button>
                     </div>
                 </div>`;
             });
@@ -622,6 +697,7 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
                     <div class="quest-actions">
                          <button class="quest-button accept" data-action="accept" data-task-id="${task.id}"><i class="fas fa-plus"></i> 接受</button>
                          <button class="quest-button delete" data-action="delete-available" data-task-id="${task.id}"><i class="fas fa-trash"></i> 删除</button>
+                         <button class="quest-button edit" data-action="edit" data-task-id="${task.id}"><i class="fas fa-edit"></i> 编辑</button>
                     </div>
                 </div>`;
             });
@@ -666,10 +742,18 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             }
 
             if (action && taskId) {
-                 if (action === 'accept') await acceptTask(taskId);
-                 if (action === 'abandon') await abandonTask(taskId);
-                 if (action === 'complete') await completeTask(taskId);
-                 if (action === 'delete-available') await deleteAvailableTask(taskId);
+                if (action === 'accept') await acceptTask(taskId);
+                if (action === 'abandon') await abandonTask(taskId);
+                if (action === 'complete') await completeTask(taskId);
+                if (action === 'delete-available') await deleteAvailableTask(taskId);
+                if (action === 'edit') toggleEditMode(taskId);
+                if (action === 'save') {
+                    const questItem = $(`.quest-item[data-task-id="${taskId}"]`);
+                    const newTitle = questItem.find('.edit-title').val();
+                    const newDescription = questItem.find('.edit-description').val();
+                    const newReward = questItem.find('.edit-reward').val();
+                    await saveTaskChanges(taskId, newTitle, newDescription, newReward);
+                }
             }
         });
     }
