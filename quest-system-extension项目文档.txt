@@ -1,3 +1,53 @@
+# 万能生成插件项目文档
+
+## 2025年7月9日 - 第五部分
+
+### 任务：重构为“万能生成插件”并添加新功能
+
+**问题描述：**
+根据用户要求，需要对原有的“任务系统扩展”进行大规模重构，将其升级为一个功能更全面的“万能生成插件”。具体要求包括：
+1.  将原有的“生成任务”板块做成可折叠样式，并默认为折叠状态。
+2.  在下方新增三个功能完全独立、UI风格统一的生成板块：生成物品、生成人物、生成剧情。
+3.  所有生成板块（包括任务）都需要具备全套的交互功能：AI生成、列表展示、单项删除、全部删除、注入酒馆、内容编辑和保存。
+4.  每个板块的AI生成指令都必须是用户可自定义的。
+5.  将插件的显示名称更改为“万能生成插件”。
+
+**根本原因分析：**
+这是一项涉及范围极广的重构任务，需要对插件的几乎所有方面进行扩展和修改：
+*   **数据层**：需要为物品、人物、剧情分别创建新的全局状态数组、localStorage存储键和AI指令模板。
+*   **UI层 (`createQuestPopupHtml`)**：需要将原单一的布局改为四个独立、可折叠的抽屉式布局。每个抽屉内都需要包含生成器、列表、以及所有操作按钮。
+*   **逻辑层 (`index.js`)**：需要为每个新板块编写一套完整的、独立的逻辑函数，包括 `generateAndAddNew...`, `deleteAllAvailable...`, `deleteAvailable...`, `add...ToTavern`, `save...Changes`, `toggleEditModeFor...`。
+*   **事件处理层 (`bindQuestPopupEvents`)**：需要大幅扩展事件委托，为每个新按钮（近20个）绑定正确的逻辑函数。
+*   **配置层 (`manifest.json`)**：需要更新插件的 `display_name` 和 `description`。
+
+**修复方案与实施步骤：**
+
+我采用了一种模块化的、逐个击破的策略来完成这次重构：
+
+1.  **更新插件名称 (`manifest.json`)**:
+    *   我直接修改了 `manifest.json` 文件，将 `display_name` 更新为“万能生成插件”，并相应地调整了 `description` 以反映其增强的功能。
+
+2.  **实现可折叠UI (`createQuestPopupHtml` & `style.css`)**:
+    *   我将原有的任务生成UI包裹在一个标准的 `.inline-drawer` 容器中。
+    *   通过CSS控制，所有 `.generator-drawer` 默认不添加 `.open` 类，实现了默认折叠的效果。点击 `.inline-drawer-toggle` 会切换该类的有无，从而控制内容的显示和隐藏。
+
+3.  **逐一构建新功能模块 (物品 -> 人物 -> 剧情)**:
+    *   **对于每个模块 (以“物品”为例)**:
+        *   **数据先行**：在 `index.js` 顶部，我定义了 `definedItems`, `currentUserModifiedItemPromptCore`, `DEFAULT_ITEM_PROMPT_CORE_CN` 等全局变量，以及 `DEFINED_ITEMS_LOCAL_KEY` 和 `CUSTOM_ITEM_PROMPT_LOCAL_KEY` 等存储键。
+        *   **加载/保存扩展**：我更新了 `loadAllTaskData` 和 `saveAllTaskData` 函数，使其能够处理 `definedItems` 和 `currentUserModifiedItemPromptCore` 的本地存储。
+        *   **UI构建**：在 `createQuestPopupHtml` 中，我复制并修改了任务模块的HTML结构，创建了物品模块的抽屉，并为其填充了生成按钮、编辑指令按钮、可用物品列表、注入、删除和编辑按钮。
+        *   **核心逻辑实现**：我编写了 `generateAndAddNewItem`, `deleteAllAvailableItems`, `deleteAvailableItem`, `addItemToTavern`, `saveItemChanges`, `toggleEditModeForItem` 等一整套与“物品”相关的函数。
+        *   **事件绑定**：在 `bindQuestPopupEvents` 中，我添加了对 `data-action="add-item"`, `data-action="edit-item"` 等新action的响应，将UI与新逻辑函数连接起来。
+    *   **重复流程**：我将上述流程完美地复制到了“人物”和“剧情”模块的开发中，确保了三个新模块在代码结构、功能和UI上的一致性。
+
+4.  **扩展指令编辑器 (`showPromptEditorPopup`)**:
+    *   我为 `showPromptEditorPopup` 函数增加了对 `type` 参数的判断（`'item'`, `'char'`, `'plot'`）。
+    *   现在，当调用该函数时，它会根据传入的类型，加载并显示对应模块的标题、描述、当前指令和默认指令，实现了编辑器对所有四个生成模块的复用。
+
+**最终结果：**
+通过这次大规模的、系统的重构，原有的任务插件已成功蜕变为一个功能强大的“万能生成插件”。用户现在拥有一个统一、清晰的界面，可以独立地生成和管理任务、物品、人物和剧情四种核心游戏元素。每个模块都具备完整的生命周期管理（生成、编辑、使用、删除），且高度可定制，极大地提升了插件的实用性和用户创作的自由度。
+
+---
 # 任务系统扩展项目文档
 
 ## 2025年7月9日 - 第四部分

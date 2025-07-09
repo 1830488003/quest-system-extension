@@ -262,6 +262,9 @@
     }
 
     /* Span sections across columns */
+    .generator-drawer {
+        grid-column: 1 / -1; /* Span full width */
+    }
     .quest-section.ai-generator {
         grid-column: 1 / -1; /* Span full width */
         grid-row: 1;
@@ -355,6 +358,63 @@
     margin: 5px 0;
     text-align: center;
     font-size: 0.9em;
+}
+
+/* --- 新增：可折叠生成器抽屉样式 --- */
+.generator-drawer {
+    background-color: var(--section-bg-color);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+    margin-bottom: 16px;
+}
+
+.generator-drawer-toggle {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.generator-drawer-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.generator-drawer-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.generator-drawer-header i {
+    font-size: 1.1em;
+    color: var(--primary-accent-color);
+}
+
+.generator-drawer-header h4 {
+    margin: 0;
+    font-size: 1.1em;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.generator-drawer-icon {
+    transition: transform 0.3s ease;
+}
+
+.generator-drawer.open > .generator-drawer-toggle > .generator-drawer-icon {
+    transform: rotate(180deg);
+}
+
+.generator-drawer-content {
+    display: none; /* 默认隐藏 */
+    padding: 0 16px 16px 16px;
+    border-top: 1px solid var(--border-color);
+}
+
+.generator-drawer.open > .generator-drawer-content {
+    display: block; /* 展开时显示 */
 }
 
 .update-indicator {

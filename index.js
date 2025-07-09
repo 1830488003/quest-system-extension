@@ -15,6 +15,15 @@ jQuery(async () => {
     const PLAYER_QUESTS_LOCAL_KEY = 'quest_system_player_tasks_v1';
     const DEFINED_QUESTS_LOCAL_KEY = 'quest_system_defined_tasks_v1';
     const CUSTOM_PROMPT_LOCAL_KEY = 'quest_system_custom_prompt_v1';
+    const DEFINED_ITEMS_LOCAL_KEY = 'quest_system_defined_items_v1';
+    const PLAYER_ITEMS_LOCAL_KEY = 'quest_system_player_items_v1';
+    const CUSTOM_ITEM_PROMPT_LOCAL_KEY = 'quest_system_custom_item_prompt_v1';
+    const DEFINED_CHARS_LOCAL_KEY = 'quest_system_defined_chars_v1';
+    const PLAYER_CHARS_LOCAL_KEY = 'quest_system_player_chars_v1';
+    const CUSTOM_CHAR_PROMPT_LOCAL_KEY = 'quest_system_custom_char_prompt_v1';
+    const DEFINED_PLOTS_LOCAL_KEY = 'quest_system_defined_plots_v1';
+    const PLAYER_PLOTS_LOCAL_KEY = 'quest_system_player_plots_v1';
+    const CUSTOM_PLOT_PROMPT_LOCAL_KEY = 'quest_system_custom_plot_prompt_v1';
 
     const PROMPT_EDITOR_POPUP_ID = 'th-prompt-editor-popup-v049';
     const PLUGIN_ENABLED_KEY = 'quest_plugin_enabled_v1';
@@ -44,6 +53,51 @@ jQuery(async () => {
 \"REWARD\" (任务奖励): 奖励要实在，但也可以不正经。除了常规的“经验值”、“金币”、“牛逼装备”之外，可以来点“某个死对头NPC的好感度-50”、“获得一个毫无用处但极其嘲讽的称号：[称号名]”、“解锁一个进去就会被卫兵追着打的新区域：[地点名]”之类的。总之，奖励要么很有用，要么很有趣。
 
 记住，你的核心是**【乐子】**。别生成任何无聊、正经、伟光正的东西。现在，开始你的表演，让我看看你有多能整活！
+`;
+
+    const DEFAULT_ITEM_PROMPT_CORE_CN = `你是一位神秘的【万物工匠AI】，时而打造神器，时而锻造废品，全凭心情。你的作品充满了想象力和一点点神经质。
+
+现在，为我生成一个包含7到8个多样化物品的列表。这些物品可以是武器、防具、饰品、消耗品，甚至是毫无用处的奇珍异宝。
+
+每个物品都必须严格按照以下格式，一个字都不能错：
+
+\"NAME\" (物品名称): 名称要独特、响亮，或者古怪得让人印象深刻。
+
+\"DESCRIPTION\" (物品描述): 描述要生动，字数在150到250字之间。详细说明物品的外观、材质、历史背景或与之相关的趣闻。让它听起来像个有故事的宝贝。
+
+\"EFFECT\" (物品效果): 效果要具体，可以是战斗中的增益/减益、与NPC互动时的特殊选项、解锁新能力的钥匙，或者仅仅是一个有趣的、纯粹用于角色扮演的特殊效果（比如“装备后说话会自带BGM”）。
+
+你的造物应该充满惊喜，可以是强大的助力，也可以是烫手的山芋。现在，展现你的鬼斧神工吧！
+`;
+
+    const DEFAULT_CHAR_PROMPT_CORE_CN = `你是一位资深的【角色塑造AI】，擅长创造有血有肉、背景独特、性格鲜明的虚拟人物。
+
+现在，为我生成一个包含7到8个多样化角色的列表。这些角色可以是盟友、敌人、中立的旁观者，或者身份神秘的未知存在。
+
+每个角色都必须严格按照以下格式，一个字都不能错：
+
+\"NAME\" (角色姓名): 一个符合其背景和种族的中文姓名。
+
+\"DESCRIPTION\" (角色描述): 详细描述角色的外观、穿着、气质和给人的第一印象。字数在150到250字之间。
+
+\"PERSONALITY\" (角色性格): 深入描绘角色的性格特点、价值观、欲望和恐惧。让角色立体、可信。
+
+\"BACKGROUND\" (角色背景): 简述角色的过去、重要经历和当前的目标。是什么塑造了今天的他/她？
+
+你的角色应该能无缝地融入到一个奇幻或科幻的冒险世界中，并能引发有趣的互动和剧情。开始你的创造吧！
+`;
+
+    const DEFAULT_PLOT_PROMPT_CORE_CN = `你是一位才华横溢的【剧情编织AI】，擅长构思引人入胜的故事开端、转折和高潮。
+
+现在，为我生成一个包含7到8个多样化剧情片段的列表。这些片段可以是世界事件的开端、一个神秘的传闻、一个突发的危机，或是一个意想不到的机会。
+
+每个剧情都必须严格按照以下格式，一个字都不能错：
+
+\"TITLE\" (剧情标题): 标题要简洁且充满悬念，能激发人的好奇心。
+
+\"DESCRIPTION\" (剧情描述): 详细描述剧情的内容，字数在200到300字之间。清晰地说明事件的起因、当前的状况，以及它可能对玩家或世界产生的影响。让它成为一个充满潜力的故事引子。
+
+你的剧情应该能够推动故事发展，为玩家提供新的目标和挑战。开始你的编织吧！
 `;
 
     const PROMPT_SUFFIX_TEMPLATE = `
@@ -88,9 +142,18 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
 `;
 
     // --- Global State ---
-    let definedTasks = []; // Holds AI-generated tasks, now persisted across sessions
+    let definedTasks = []; // Holds AI-generated tasks
+    let definedItems = []; // Holds AI-generated items
+    let definedChars = []; // Holds AI-generated characters
+    let definedPlots = []; // Holds AI-generated plots
     let playerTasksStatus = {}; // Persisted in chat variables
+    let playerItems = {}; // Holds items "accepted" by the player
+    let playerChars = {}; // Holds characters "accepted" by the player
+    let playerPlots = {}; // Holds plots "accepted" by the player
     let currentUserModifiedEditablePromptCore = DEFAULT_EDITABLE_PROMPT_CORE_CN;
+    let currentUserModifiedItemPromptCore = DEFAULT_ITEM_PROMPT_CORE_CN;
+    let currentUserModifiedCharPromptCore = DEFAULT_CHAR_PROMPT_CORE_CN;
+    let currentUserModifiedPlotPromptCore = DEFAULT_PLOT_PROMPT_CORE_CN;
     let currentChatFileIdentifier = "unknown_chat_init"; // Tracks the current chat file
 
     // A helper to safely escape HTML
@@ -183,6 +246,15 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
     const getPlayerQuestsKey = () => `${PLAYER_QUESTS_LOCAL_KEY}_${currentChatFileIdentifier}`;
     const getDefinedQuestsKey = () => `${DEFINED_QUESTS_LOCAL_KEY}_${currentChatFileIdentifier}`;
     const getCustomPromptKey = () => `${CUSTOM_PROMPT_LOCAL_KEY}_${currentChatFileIdentifier}`;
+    const getDefinedItemsKey = () => `${DEFINED_ITEMS_LOCAL_KEY}_${currentChatFileIdentifier}`;
+    const getPlayerItemsKey = () => `${PLAYER_ITEMS_LOCAL_KEY}_${currentChatFileIdentifier}`;
+    const getCustomItemPromptKey = () => `${CUSTOM_ITEM_PROMPT_LOCAL_KEY}_${currentChatFileIdentifier}`;
+    const getDefinedCharsKey = () => `${DEFINED_CHARS_LOCAL_KEY}_${currentChatFileIdentifier}`;
+    const getPlayerCharsKey = () => `${PLAYER_CHARS_LOCAL_KEY}_${currentChatFileIdentifier}`;
+    const getCustomCharPromptKey = () => `${CUSTOM_CHAR_PROMPT_LOCAL_KEY}_${currentChatFileIdentifier}`;
+    const getDefinedPlotsKey = () => `${DEFINED_PLOTS_LOCAL_KEY}_${currentChatFileIdentifier}`;
+    const getPlayerPlotsKey = () => `${PLAYER_PLOTS_LOCAL_KEY}_${currentChatFileIdentifier}`;
+    const getCustomPlotPromptKey = () => `${CUSTOM_PLOT_PROMPT_LOCAL_KEY}_${currentChatFileIdentifier}`;
 
     /**
      * Loads all task data from localStorage for the current character.
@@ -194,6 +266,7 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
         let migrationNeeded = false;
         let migratedPlayerTasks = {};
         let migratedDefinedTasks = [];
+        // Note: Items are a new feature, so no migration needed for them.
 
         // Step 1: Check for old data in chat variables for migration.
         try {
@@ -224,23 +297,55 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             const playerTasksRaw = localStorage.getItem(getPlayerQuestsKey());
             const definedTasksRaw = localStorage.getItem(getDefinedQuestsKey());
             const customPromptRaw = localStorage.getItem(getCustomPromptKey());
+            const definedItemsRaw = localStorage.getItem(getDefinedItemsKey());
+            const playerItemsRaw = localStorage.getItem(getPlayerItemsKey());
+            const customItemPromptRaw = localStorage.getItem(getCustomItemPromptKey());
+            const definedCharsRaw = localStorage.getItem(getDefinedCharsKey());
+            const playerCharsRaw = localStorage.getItem(getPlayerCharsKey());
+            const customCharPromptRaw = localStorage.getItem(getCustomCharPromptKey());
+            const definedPlotsRaw = localStorage.getItem(getDefinedPlotsKey());
+            const playerPlotsRaw = localStorage.getItem(getPlayerPlotsKey());
+            const customPlotPromptRaw = localStorage.getItem(getCustomPlotPromptKey());
 
             if (migrationNeeded) {
                 playerTasksStatus = migratedPlayerTasks;
                 definedTasks = migratedDefinedTasks;
+                // New player data structures are loaded normally
+                playerItems = playerItemsRaw ? JSON.parse(playerItemsRaw) : {};
+                playerChars = playerCharsRaw ? JSON.parse(playerCharsRaw) : {};
+                playerPlots = playerPlotsRaw ? JSON.parse(playerPlotsRaw) : {};
+                definedItems = definedItemsRaw ? JSON.parse(definedItemsRaw) : [];
             } else {
                 playerTasksStatus = playerTasksRaw ? JSON.parse(playerTasksRaw) : {};
                 definedTasks = definedTasksRaw ? JSON.parse(definedTasksRaw) : [];
+                definedItems = definedItemsRaw ? JSON.parse(definedItemsRaw) : [];
+                playerItems = playerItemsRaw ? JSON.parse(playerItemsRaw) : {};
+                definedChars = definedCharsRaw ? JSON.parse(definedCharsRaw) : [];
+                playerChars = playerCharsRaw ? JSON.parse(playerCharsRaw) : {};
+                definedPlots = definedPlotsRaw ? JSON.parse(definedPlotsRaw) : [];
+                playerPlots = playerPlotsRaw ? JSON.parse(playerPlotsRaw) : {};
             }
             
             currentUserModifiedEditablePromptCore = customPromptRaw || DEFAULT_EDITABLE_PROMPT_CORE_CN;
+            currentUserModifiedItemPromptCore = customItemPromptRaw || DEFAULT_ITEM_PROMPT_CORE_CN;
+            currentUserModifiedCharPromptCore = customCharPromptRaw || DEFAULT_CHAR_PROMPT_CORE_CN;
+            currentUserModifiedPlotPromptCore = customPlotPromptRaw || DEFAULT_PLOT_PROMPT_CORE_CN;
 
         } catch (error) {
             console.error('[QuestSystem] Error loading data from localStorage:', error);
-            toastr.error(`从本地存储加载任务数据失败: ${error.message}`);
+            toastr.error(`从本地存储加载数据失败: ${error.message}`);
             playerTasksStatus = {};
             definedTasks = [];
+            definedItems = [];
+            playerItems = {};
+            definedChars = [];
+            playerChars = {};
+            definedPlots = [];
+            playerPlots = {};
             currentUserModifiedEditablePromptCore = DEFAULT_EDITABLE_PROMPT_CORE_CN;
+            currentUserModifiedItemPromptCore = DEFAULT_ITEM_PROMPT_CORE_CN;
+            currentUserModifiedCharPromptCore = DEFAULT_CHAR_PROMPT_CORE_CN;
+            currentUserModifiedPlotPromptCore = DEFAULT_PLOT_PROMPT_CORE_CN;
         }
         
         // Step 3: If migration occurred, save to new location and clear old data.
@@ -265,13 +370,22 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             localStorage.setItem(getPlayerQuestsKey(), JSON.stringify(playerTasksStatus));
             localStorage.setItem(getDefinedQuestsKey(), JSON.stringify(definedTasks));
             localStorage.setItem(getCustomPromptKey(), currentUserModifiedEditablePromptCore);
+            localStorage.setItem(getDefinedItemsKey(), JSON.stringify(definedItems));
+            localStorage.setItem(getPlayerItemsKey(), JSON.stringify(playerItems));
+            localStorage.setItem(getCustomItemPromptKey(), currentUserModifiedItemPromptCore);
+            localStorage.setItem(getDefinedCharsKey(), JSON.stringify(definedChars));
+            localStorage.setItem(getPlayerCharsKey(), JSON.stringify(playerChars));
+            localStorage.setItem(getCustomCharPromptKey(), currentUserModifiedCharPromptCore);
+            localStorage.setItem(getDefinedPlotsKey(), JSON.stringify(definedPlots));
+            localStorage.setItem(getPlayerPlotsKey(), JSON.stringify(playerPlots));
+            localStorage.setItem(getCustomPlotPromptKey(), currentUserModifiedPlotPromptCore);
             
             if (refreshUI) {
                 refreshQuestPopupUI();
             }
         } catch (error) {
             console.error('[QuestSystem] Error saving data to localStorage:', error);
-            toastr.error(`保存任务数据到本地存储时出错: ${error.message}`);
+            toastr.error(`保存数据到本地存储时出错: ${error.message}`);
         }
     }
 
@@ -428,6 +542,697 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
         toastr.success(`已成功删除 ${count} 个可接任务。`);
     }
 
+    // --- Plot Actions ---
+
+    async function generateAndAddNewPlot() {
+        if (!checkAPIs()) return;
+        const genButton = $(`#${QUEST_POPUP_ID} #trigger-ai-plot-generation`);
+        const originalButtonHtml = genButton.html();
+        genButton.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> AI编织中...');
+
+        try {
+            const lastMessageId = TavernHelper.getLastMessageId();
+            const startMessageId = Math.max(0, lastMessageId - 4);
+            const messages = await TavernHelper.getChatMessages(`${startMessageId}-${lastMessageId}`, { include_swipes: false });
+            const chatHistoryString = messages.length > 0 ? messages.map(m => `${escapeHtml(m.name)}: ${escapeHtml(m.message)}`).join('\n') : "无最近聊天记录。";
+
+            let worldInfoString = "未加载相关的世界设定信息。";
+            const primaryLorebookName = await TavernHelper.getCurrentCharPrimaryLorebook();
+            if (primaryLorebookName) {
+                const lorebookEntries = await TavernHelper.getLorebookEntries(primaryLorebookName);
+                if (lorebookEntries.length > 0) {
+                    worldInfoString = lorebookEntries.filter(e => e.enabled && e.content).slice(0, 5).map(e => `条目: ${e.comment}\n内容: ${e.content}`).join('\n\n');
+                }
+            }
+
+            const plotPromptSuffix = `
+每个剧情必须严格遵循以下格式，且每个字段各占一行：
+TITLE: [剧情的中文标题]
+DESCRIPTION: [对剧情的中文描述]
+
+现在请生成7到8个剧情的列表。`;
+
+            const finalUserPrompt = PROMPT_PREFIX_TEMPLATE.replace('{chatHistory}', chatHistoryString).replace('{worldInfo}', worldInfoString)
+                                  + currentUserModifiedPlotPromptCore
+                                  + plotPromptSuffix;
+
+            const generatedText = await TavernHelper.generateRaw({
+                ordered_prompts: [{ role: 'user', content: finalUserPrompt }],
+                max_new_tokens: 4096
+            });
+
+            const plotBlocksRegex = /^\s*TITLE:\s*(.*?)\s*DESCRIPTION:\s*(.*?)(?=\n\s*TITLE:|$)/gims;
+            let match;
+            let plotsGeneratedCount = 0;
+            while ((match = plotBlocksRegex.exec(generatedText)) !== null) {
+                const newPlot = {
+                    id: 'ai_plot_' + Date.now() + '_' + plotsGeneratedCount,
+                    title: match[1].trim(),
+                    description: match[2].trim(),
+                    isAIGenerated: true
+                };
+                if (!definedPlots.some(p => p.title === newPlot.title)) {
+                    definedPlots.push(newPlot);
+                    plotsGeneratedCount++;
+                }
+            }
+
+            if (plotsGeneratedCount > 0) {
+                toastr.success(`AI成功生成了 ${plotsGeneratedCount} 个新剧情!`);
+                await saveAllTaskData(false); // 保存数据，但不刷新UI
+                refreshQuestPopupUI(); // 手动刷新UI
+                // 刷新后，重新打开并滚动到剧情抽屉
+                const plotDrawer = $(`#${QUEST_POPUP_ID} .generator-drawer:has(h4:contains("生成剧情"))`);
+                if (plotDrawer.length && !plotDrawer.hasClass('open')) {
+                    plotDrawer.addClass('open');
+                }
+                plotDrawer[0]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            } else {
+                toastr.error("AI返回的剧情格式不正确，无法解析。");
+            }
+        } catch (error) {
+            console.error('[QuestSystem] Error generating AI plot:', error);
+            toastr.error(`AI剧情生成失败: ${error.message}`);
+        } finally {
+            const finalButton = $(`#${QUEST_POPUP_ID} #trigger-ai-plot-generation`);
+            if (finalButton.length) {
+                finalButton.prop('disabled', false).html(originalButtonHtml);
+            }
+        }
+    }
+
+    async function deleteAllAvailablePlots() {
+        if (!checkAPIs()) return;
+        if (definedPlots.length === 0) {
+            toastr.info("没有可删除的剧情。");
+            return;
+        }
+        const count = definedPlots.length;
+        definedPlots.length = 0; // Clear array
+        await saveAllTaskData();
+        toastr.success(`已成功删除 ${count} 个可用剧情。`);
+    }
+
+    async function deleteAvailablePlot(plotId) {
+        if (!checkAPIs()) return;
+        const plotIndex = definedPlots.findIndex(p => p.id === plotId);
+        if (plotIndex === -1) {
+            toastr.error(`剧情 ${plotId} 未在可用列表中找到！`);
+            return;
+        }
+        const plotDef = definedPlots[plotIndex];
+        definedPlots.splice(plotIndex, 1);
+        await saveAllTaskData();
+        toastr.info(`已删除可用剧情: ${plotDef.title}`);
+    }
+
+    async function deletePlayerPlot(plotId) {
+        if (!checkAPIs()) return;
+        if (!playerPlots[plotId]) {
+            toastr.error(`剧情 ${plotId} 未在当前剧情列表中找到！`);
+            return;
+        }
+        const plotDef = playerPlots[plotId];
+        delete playerPlots[plotId];
+        await saveAllTaskData();
+        toastr.info(`已删除当前剧情: ${plotDef.title}`);
+    }
+
+    async function addPlotToTavern(plotId, isFromPlayerList = false) {
+        if (!checkAPIs()) return;
+        
+        let plot;
+        if (isFromPlayerList) {
+            plot = playerPlots[plotId];
+        } else {
+            const plotIndex = definedPlots.findIndex(p => p.id === plotId);
+            if (plotIndex !== -1) {
+                plot = definedPlots[plotIndex];
+            }
+        }
+
+        if (!plot) {
+            toastr.error(`找不到要注入的剧情 ${plotId}！`);
+            return;
+        }
+
+        const message = `【剧情更新】\n标题: ${plot.title}\n${plot.description}`;
+        await injectSystemMessage(message);
+        toastr.success(`剧情 "${plot.title}" 已成功注入酒馆！`);
+        
+        if (!isFromPlayerList) {
+            const plotIndex = definedPlots.findIndex(p => p.id === plotId);
+            if (plotIndex !== -1) {
+                const plotDef = definedPlots.splice(plotIndex, 1)[0];
+                playerPlots[plotId] = { ...plotDef };
+                await saveAllTaskData();
+            }
+        }
+    }
+
+    async function savePlotChanges(plotId, newTitle, newDescription, isFromPlayerList = false) {
+        if (!checkAPIs()) return;
+        let plot;
+        if (isFromPlayerList) {
+            plot = playerPlots[plotId];
+        } else {
+            const plotIndex = definedPlots.findIndex(p => p.id === plotId);
+            if (plotIndex !== -1) {
+                plot = definedPlots[plotIndex];
+            }
+        }
+
+        if (!plot) {
+            toastr.error("无法找到要保存的剧情！");
+            return;
+        }
+
+        plot.title = newTitle;
+        plot.description = newDescription;
+        
+        await saveAllTaskData();
+        toastr.success(`剧情 "${newTitle}" 已成功保存！`);
+        
+        if (isFromPlayerList) {
+            const message = `【剧情变更】\n玩家修改了剧情 "${newTitle}" 的内容。\n新描述: ${newDescription}`;
+            await injectSystemMessage(message);
+        }
+    }
+
+    function toggleEditModeForPlot(plotId, isFromPlayerList = false) {
+        const plotElement = $(`.quest-item[data-plot-id="${plotId}"]`);
+        if (plotElement.hasClass('editing')) {
+            const titleInput = plotElement.find('.edit-title').val();
+            const descTextarea = plotElement.find('.edit-description').val();
+
+            plotElement.find('.quest-title').html(escapeHtml(titleInput) + ' <i class="fas fa-robot" title="AI生成"></i>').show();
+            plotElement.find('.quest-description').text(descTextarea).show();
+
+            plotElement.find('.quest-content-edit').remove();
+            plotElement.find('.quest-actions .edit').show();
+            plotElement.find('.quest-actions .save').remove();
+            plotElement.removeClass('editing');
+        } else {
+            const title = plotElement.find('.quest-title').text().trim();
+            const description = plotElement.find('.quest-description').text().trim();
+
+            plotElement.find('.quest-title, .quest-description').hide();
+
+            const editHtml = `
+                <div class="quest-content-edit">
+                    <input type="text" class="edit-title" value="${escapeHtml(title)}" />
+                    <textarea class="edit-description">${escapeHtml(description)}</textarea>
+                </div>
+            `;
+            plotElement.find('.quest-title').after(editHtml);
+
+            plotElement.find('.quest-actions .edit').hide();
+            plotElement.find('.quest-actions').append(`<button class="quest-button save" data-action="save-plot" data-plot-id="${plotId}" ${isFromPlayerList ? 'data-is-player-plot="true"' : ''}><i class="fas fa-save"></i> 保存</button>`);
+            plotElement.addClass('editing');
+        }
+    }
+
+    // --- Character Actions ---
+
+    async function generateAndAddNewChar() {
+        if (!checkAPIs()) return;
+        const genButton = $(`#${QUEST_POPUP_ID} #trigger-ai-char-generation`);
+        const originalButtonHtml = genButton.html();
+        genButton.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> AI塑造中...');
+
+        try {
+            const lastMessageId = TavernHelper.getLastMessageId();
+            const startMessageId = Math.max(0, lastMessageId - 4);
+            const messages = await TavernHelper.getChatMessages(`${startMessageId}-${lastMessageId}`, { include_swipes: false });
+            const chatHistoryString = messages.length > 0 ? messages.map(m => `${escapeHtml(m.name)}: ${escapeHtml(m.message)}`).join('\n') : "无最近聊天记录。";
+
+            let worldInfoString = "未加载相关的世界设定信息。";
+            const primaryLorebookName = await TavernHelper.getCurrentCharPrimaryLorebook();
+            if (primaryLorebookName) {
+                const lorebookEntries = await TavernHelper.getLorebookEntries(primaryLorebookName);
+                if (lorebookEntries.length > 0) {
+                    worldInfoString = lorebookEntries.filter(e => e.enabled && e.content).slice(0, 5).map(e => `条目: ${e.comment}\n内容: ${e.content}`).join('\n\n');
+                }
+            }
+
+            const charPromptSuffix = `
+每个角色必须严格遵循以下格式，且每个字段各占一行：
+NAME: [角色的中文名称]
+DESCRIPTION: [对角色的中文描述]
+PERSONALITY: [角色的中文性格]
+BACKGROUND: [角色的中文背景]
+
+现在请生成7到8个角色的列表。`;
+
+            const finalUserPrompt = PROMPT_PREFIX_TEMPLATE.replace('{chatHistory}', chatHistoryString).replace('{worldInfo}', worldInfoString)
+                                  + currentUserModifiedCharPromptCore
+                                  + charPromptSuffix;
+
+            const generatedText = await TavernHelper.generateRaw({
+                ordered_prompts: [{ role: 'user', content: finalUserPrompt }],
+                max_new_tokens: 4096 // Characters can be long
+            });
+
+            const charBlocksRegex = /^\s*NAME:\s*(.*?)\s*DESCRIPTION:\s*(.*?)\s*PERSONALITY:\s*(.*?)\s*BACKGROUND:\s*(.*?)(?=\n\s*NAME:|$)/gims;
+            let match;
+            let charsGeneratedCount = 0;
+            while ((match = charBlocksRegex.exec(generatedText)) !== null) {
+                const newChar = {
+                    id: 'ai_char_' + Date.now() + '_' + charsGeneratedCount,
+                    name: match[1].trim(),
+                    description: match[2].trim(),
+                    personality: match[3].trim(),
+                    background: match[4].trim(),
+                    isAIGenerated: true
+                };
+                if (!definedChars.some(c => c.name === newChar.name)) {
+                    definedChars.push(newChar);
+                    charsGeneratedCount++;
+                }
+            }
+
+            if (charsGeneratedCount > 0) {
+                toastr.success(`AI成功生成了 ${charsGeneratedCount} 个新人物!`);
+                await saveAllTaskData(false); // 保存数据，但不刷新UI
+                refreshQuestPopupUI(); // 手动刷新UI
+                // 刷新后，重新打开并滚动到人物抽屉
+                const charDrawer = $(`#${QUEST_POPUP_ID} .generator-drawer:has(h4:contains("生成人物"))`);
+                if (charDrawer.length && !charDrawer.hasClass('open')) {
+                    charDrawer.addClass('open');
+                }
+                charDrawer[0]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            } else {
+                toastr.error("AI返回的人物格式不正确，无法解析。");
+            }
+        } catch (error) {
+            console.error('[QuestSystem] Error generating AI character:', error);
+            toastr.error(`AI人物生成失败: ${error.message}`);
+        } finally {
+            const finalButton = $(`#${QUEST_POPUP_ID} #trigger-ai-char-generation`);
+            if (finalButton.length) {
+                finalButton.prop('disabled', false).html(originalButtonHtml);
+            }
+        }
+    }
+
+    async function deleteAllAvailableChars() {
+        if (!checkAPIs()) return;
+        if (definedChars.length === 0) {
+            toastr.info("没有可删除的人物。");
+            return;
+        }
+        const count = definedChars.length;
+        definedChars.length = 0; // Clear array
+        await saveAllTaskData();
+        toastr.success(`已成功删除 ${count} 个可用人物。`);
+    }
+
+    async function deleteAvailableChar(charId) {
+        if (!checkAPIs()) return;
+        const charIndex = definedChars.findIndex(c => c.id === charId);
+        if (charIndex === -1) {
+            toastr.error(`人物 ${charId} 未在可用列表中找到！`);
+            return;
+        }
+        const charDef = definedChars[charIndex];
+        definedChars.splice(charIndex, 1);
+        await saveAllTaskData();
+        toastr.info(`已删除可用人物: ${charDef.name}`);
+    }
+
+    async function deletePlayerChar(charId) {
+        if (!checkAPIs()) return;
+        if (!playerChars[charId]) {
+            toastr.error(`人物 ${charId} 未在当前人物列表中找到！`);
+            return;
+        }
+        const charDef = playerChars[charId];
+        delete playerChars[charId];
+        await saveAllTaskData();
+        toastr.info(`已删除当前人物: ${charDef.name}`);
+    }
+
+    async function addCharToTavern(charId, isFromPlayerList = false) {
+        if (!checkAPIs()) return;
+
+        let char;
+        if (isFromPlayerList) {
+            char = playerChars[charId];
+        } else {
+            const charIndex = definedChars.findIndex(c => c.id === charId);
+            if (charIndex !== -1) {
+                char = definedChars[charIndex];
+            }
+        }
+
+        if (!char) {
+            toastr.error(`找不到要注入的人物 ${charId}！`);
+            return;
+        }
+
+        const message = `【新人物登场】\n姓名: ${char.name}\n描述: ${char.description}\n性格: ${char.personality}\n背景: ${char.background}`;
+        await injectSystemMessage(message);
+        toastr.success(`人物 "${char.name}" 已成功注入酒馆！`);
+        
+        if (!isFromPlayerList) {
+            const charIndex = definedChars.findIndex(c => c.id === charId);
+            if (charIndex !== -1) {
+                const charDef = definedChars.splice(charIndex, 1)[0];
+                playerChars[charId] = { ...charDef };
+                await saveAllTaskData();
+            }
+        }
+    }
+
+    async function saveCharChanges(charId, newName, newDescription, newPersonality, newBackground, isFromPlayerList = false) {
+        if (!checkAPIs()) return;
+        let char;
+        if (isFromPlayerList) {
+            char = playerChars[charId];
+        } else {
+            const charIndex = definedChars.findIndex(c => c.id === charId);
+            if (charIndex !== -1) {
+                char = definedChars[charIndex];
+            }
+        }
+
+        if (!char) {
+            toastr.error("无法找到要保存的人物！");
+            return;
+        }
+
+        char.name = newName;
+        char.description = newDescription;
+        char.personality = newPersonality;
+        char.background = newBackground;
+        
+        await saveAllTaskData();
+        toastr.success(`人物 "${newName}" 已成功保存！`);
+
+        if (isFromPlayerList) {
+            const message = `【人物信息变更】\n玩家修改了人物 "${newName}" 的信息。\n新描述: ${newDescription}\n新性格: ${newPersonality}\n新背景: ${newBackground}`;
+            await injectSystemMessage(message);
+        }
+    }
+
+    function toggleEditModeForChar(charId, isFromPlayerList = false) {
+        const charElement = $(`.quest-item[data-char-id="${charId}"]`);
+        if (charElement.hasClass('editing')) {
+            const nameInput = charElement.find('.edit-name').val();
+            const descTextarea = charElement.find('.edit-description').val();
+            const personalityTextarea = charElement.find('.edit-personality').val();
+            const backgroundTextarea = charElement.find('.edit-background').val();
+
+            charElement.find('.quest-title').html(escapeHtml(nameInput) + ' <i class="fas fa-robot" title="AI生成"></i>').show();
+            charElement.find('p:contains("描述:")').html(`<b>描述:</b> ${escapeHtml(descTextarea)}`).show();
+            charElement.find('p:contains("性格:")').html(`<b>性格:</b> ${escapeHtml(personalityTextarea)}`).show();
+            charElement.find('.quest-reward').html(`<b>背景:</b> ${escapeHtml(backgroundTextarea)}`).show();
+
+            charElement.find('.quest-content-edit').remove();
+            charElement.find('.quest-actions .edit').show();
+            charElement.find('.quest-actions .save').remove();
+            charElement.removeClass('editing');
+        } else {
+            const name = charElement.find('.quest-title').text().trim();
+            const description = (charElement.find('p:contains("描述:")').html() || '').replace(/<b>描述:<\/b>\s*/, '').trim();
+            const personality = (charElement.find('p:contains("性格:")').html() || '').replace(/<b>性格:<\/b>\s*/, '').trim();
+            const background = (charElement.find('.quest-reward').html() || '').replace(/<b>背景:<\/b>\s*/, '').trim();
+
+            charElement.find('.quest-title, p:contains("描述:"), p:contains("性格:"), .quest-reward').hide();
+
+            const editHtml = `
+                <div class="quest-content-edit">
+                    <input type="text" class="edit-name" value="${escapeHtml(name)}" />
+                    <textarea class="edit-description">${escapeHtml(description)}</textarea>
+                    <textarea class="edit-personality">${escapeHtml(personality)}</textarea>
+                    <textarea class="edit-background">${escapeHtml(background)}</textarea>
+                </div>
+            `;
+            charElement.find('.quest-title').after(editHtml);
+
+            charElement.find('.quest-actions .edit').hide();
+            charElement.find('.quest-actions').append(`<button class="quest-button save" data-action="save-char" data-char-id="${charId}" ${isFromPlayerList ? 'data-is-player-char="true"' : ''}><i class="fas fa-save"></i> 保存</button>`);
+            charElement.addClass('editing');
+        }
+    }
+
+    // --- Character Actions ---
+
+    async function generateAndAddNewChar() {
+        if (!checkAPIs()) return;
+        const genButton = $(`#${QUEST_POPUP_ID} #trigger-ai-char-generation`);
+        const originalButtonHtml = genButton.html();
+        genButton.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> AI塑造中...');
+
+        try {
+            const lastMessageId = TavernHelper.getLastMessageId();
+            const startMessageId = Math.max(0, lastMessageId - 4);
+            const messages = await TavernHelper.getChatMessages(`${startMessageId}-${lastMessageId}`, { include_swipes: false });
+            const chatHistoryString = messages.length > 0 ? messages.map(m => `${escapeHtml(m.name)}: ${escapeHtml(m.message)}`).join('\n') : "无最近聊天记录。";
+
+            let worldInfoString = "未加载相关的世界设定信息。";
+            const primaryLorebookName = await TavernHelper.getCurrentCharPrimaryLorebook();
+            if (primaryLorebookName) {
+                const lorebookEntries = await TavernHelper.getLorebookEntries(primaryLorebookName);
+                if (lorebookEntries.length > 0) {
+                    worldInfoString = lorebookEntries.filter(e => e.enabled && e.content).slice(0, 5).map(e => `条目: ${e.comment}\n内容: ${e.content}`).join('\n\n');
+                }
+            }
+
+            const charPromptSuffix = `
+每个角色必须严格遵循以下格式，且每个字段各占一行：
+NAME: [角色的中文名称]
+DESCRIPTION: [对角色的中文描述]
+PERSONALITY: [角色的中文性格]
+BACKGROUND: [角色的中文背景]
+
+现在请生成7到8个角色的列表。`;
+
+            const finalUserPrompt = PROMPT_PREFIX_TEMPLATE.replace('{chatHistory}', chatHistoryString).replace('{worldInfo}', worldInfoString)
+                                  + currentUserModifiedCharPromptCore
+                                  + charPromptSuffix;
+
+            const generatedText = await TavernHelper.generateRaw({
+                ordered_prompts: [{ role: 'user', content: finalUserPrompt }],
+                max_new_tokens: 4096 // Characters can be long
+            });
+
+            const charBlocksRegex = /^\s*NAME:\s*(.*?)\s*DESCRIPTION:\s*(.*?)\s*PERSONALITY:\s*(.*?)\s*BACKGROUND:\s*(.*?)(?=\n\s*NAME:|$)/gims;
+            let match;
+            let charsGeneratedCount = 0;
+            while ((match = charBlocksRegex.exec(generatedText)) !== null) {
+                const newChar = {
+                    id: 'ai_char_' + Date.now() + '_' + charsGeneratedCount,
+                    name: match[1].trim(),
+                    description: match[2].trim(),
+                    personality: match[3].trim(),
+                    background: match[4].trim(),
+                    isAIGenerated: true
+                };
+                if (!definedChars.some(c => c.name === newChar.name)) {
+                    definedChars.push(newChar);
+                    charsGeneratedCount++;
+                }
+            }
+
+            if (charsGeneratedCount > 0) {
+                toastr.success(`AI成功生成了 ${charsGeneratedCount} 个新人物!`);
+                await saveAllTaskData();
+            } else {
+                toastr.error("AI返回的人物格式不正确，无法解析。");
+            }
+        } catch (error) {
+            console.error('[QuestSystem] Error generating AI character:', error);
+            toastr.error(`AI人物生成失败: ${error.message}`);
+        } finally {
+            const finalButton = $(`#${QUEST_POPUP_ID} #trigger-ai-char-generation`);
+            if (finalButton.length) {
+                finalButton.prop('disabled', false).html(originalButtonHtml);
+            }
+        }
+    }
+
+    async function deleteAllAvailableChars() {
+        if (!checkAPIs()) return;
+        if (definedChars.length === 0) {
+            toastr.info("没有可删除的人物。");
+            return;
+        }
+        const count = definedChars.length;
+        definedChars.length = 0; // Clear array
+        await saveAllTaskData();
+        toastr.success(`已成功删除 ${count} 个可用人物。`);
+    }
+
+    async function deleteAvailableChar(charId) {
+        if (!checkAPIs()) return;
+        const charIndex = definedChars.findIndex(c => c.id === charId);
+        if (charIndex === -1) {
+            toastr.error(`人物 ${charId} 未在可用列表中找到！`);
+            return;
+        }
+        const charDef = definedChars[charIndex];
+        definedChars.splice(charIndex, 1);
+        await saveAllTaskData();
+        toastr.info(`已删除可用人物: ${charDef.name}`);
+    }
+
+    async function addCharToTavern(charId) {
+        if (!checkAPIs()) return;
+        const char = definedChars.find(c => c.id === charId);
+        if (!char) {
+            toastr.error(`找不到要注入的人物 ${charId}！`);
+            return;
+        }
+        const message = `【新人物登场】\n姓名: ${char.name}\n描述: ${char.description}\n性格: ${char.personality}\n背景: ${char.background}`;
+        await injectSystemMessage(message);
+        toastr.success(`人物 "${char.name}" 已成功注入酒馆！`);
+        
+        const charIndex = definedChars.findIndex(c => c.id === charId);
+        if (charIndex !== -1) {
+            definedChars.splice(charIndex, 1);
+            await saveAllTaskData();
+        }
+    }
+
+    // --- Item Actions ---
+
+    async function deleteAllAvailableItems() {
+        if (!checkAPIs()) return;
+        if (definedItems.length === 0) {
+            toastr.info("没有可删除的物品。");
+            return;
+        }
+        const count = definedItems.length;
+        definedItems.length = 0; // Clear array
+        await saveAllTaskData();
+        toastr.success(`已成功删除 ${count} 个可用物品。`);
+    }
+
+    async function deleteAvailableItem(itemId) {
+        if (!checkAPIs()) return;
+        const itemIndex = definedItems.findIndex(i => i.id === itemId);
+        if (itemIndex === -1) {
+            toastr.error(`物品 ${itemId} 未在可用列表中找到！`);
+            return;
+        }
+        const itemDef = definedItems[itemIndex];
+        definedItems.splice(itemIndex, 1);
+        await saveAllTaskData();
+        toastr.info(`已删除可用物品: ${itemDef.name}`);
+    }
+
+    async function deletePlayerItem(itemId) {
+        if (!checkAPIs()) return;
+        if (!playerItems[itemId]) {
+            toastr.error(`物品 ${itemId} 未在当前物品列表中找到！`);
+            return;
+        }
+        const itemDef = playerItems[itemId];
+        delete playerItems[itemId];
+        await saveAllTaskData();
+        toastr.info(`已删除当前物品: ${itemDef.name}`);
+    }
+
+    async function addItemToTavern(itemId, isFromPlayerList = false) {
+        if (!checkAPIs()) return;
+
+        let item;
+        if (isFromPlayerList) {
+            item = playerItems[itemId];
+        } else {
+            const itemIndex = definedItems.findIndex(i => i.id === itemId);
+            if (itemIndex !== -1) {
+                item = definedItems[itemIndex];
+            }
+        }
+
+        if (!item) {
+            toastr.error(`找不到要注入的物品 ${itemId}！`);
+            return;
+        }
+
+        const message = `【获得物品】\n名称: ${item.name}\n描述: ${item.description}\n效果: ${item.effect}`;
+        await injectSystemMessage(message);
+        toastr.success(`物品 "${item.name}" 已成功注入酒馆！`);
+        
+        if (!isFromPlayerList) {
+            const itemIndex = definedItems.findIndex(i => i.id === itemId);
+            if (itemIndex !== -1) {
+                const itemDef = definedItems.splice(itemIndex, 1)[0];
+                playerItems[itemId] = { ...itemDef };
+                await saveAllTaskData();
+            }
+        }
+    }
+
+    async function saveItemChanges(itemId, newName, newDescription, newEffect, isFromPlayerList = false) {
+        if (!checkAPIs()) return;
+        let item;
+        if (isFromPlayerList) {
+            item = playerItems[itemId];
+        } else {
+            const itemIndex = definedItems.findIndex(i => i.id === itemId);
+            if (itemIndex !== -1) {
+                item = definedItems[itemIndex];
+            }
+        }
+
+        if (!item) {
+            toastr.error("无法找到要保存的物品！");
+            return;
+        }
+
+        item.name = newName;
+        item.description = newDescription;
+        item.effect = newEffect;
+        
+        await saveAllTaskData();
+        toastr.success(`物品 "${newName}" 已成功保存！`);
+
+        if (isFromPlayerList) {
+            const message = `【物品信息变更】\n玩家修改了物品 "${newName}" 的信息。\n新描述: ${newDescription}\n新效果: ${newEffect}`;
+            await injectSystemMessage(message);
+        }
+    }
+
+    function toggleEditModeForItem(itemId, isFromPlayerList = false) {
+        const itemElement = $(`.quest-item[data-item-id="${itemId}"]`);
+        if (itemElement.hasClass('editing')) {
+            const nameInput = itemElement.find('.edit-name').val();
+            const descTextarea = itemElement.find('.edit-description').val();
+            const effectTextarea = itemElement.find('.edit-effect').val();
+
+            itemElement.find('.quest-title').html(escapeHtml(nameInput) + ' <i class="fas fa-robot" title="AI生成"></i>').show();
+            itemElement.find('.quest-description').text(descTextarea).show();
+            itemElement.find('.quest-reward').html(`<b>效果:</b> ${escapeHtml(effectTextarea)}`).show();
+
+            itemElement.find('.quest-content-edit').remove();
+            itemElement.find('.quest-actions .edit').show();
+            itemElement.find('.quest-actions .save').remove();
+            itemElement.removeClass('editing');
+        } else {
+            const name = itemElement.find('.quest-title').text().trim();
+            const description = itemElement.find('.quest-description').text().trim();
+            const effect = (itemElement.find('.quest-reward').html() || '').replace(/<b>效果:<\/b>\s*/, '').trim();
+
+            itemElement.find('.quest-title, .quest-description, .quest-reward').hide();
+
+            const editHtml = `
+                <div class="quest-content-edit">
+                    <input type="text" class="edit-name" value="${escapeHtml(name)}" />
+                    <textarea class="edit-description">${escapeHtml(description)}</textarea>
+                    <textarea class="edit-effect">${escapeHtml(effect)}</textarea>
+                </div>
+            `;
+            itemElement.find('.quest-title').after(editHtml);
+
+            itemElement.find('.quest-actions .edit').hide();
+            itemElement.find('.quest-actions').append(`<button class="quest-button save" data-action="save-item" data-item-id="${itemId}" ${isFromPlayerList ? 'data-is-player-item="true"' : ''}><i class="fas fa-save"></i> 保存</button>`);
+            itemElement.addClass('editing');
+        }
+    }
+
     async function completeTask(taskId) {
         if (!checkAPIs()) return;
         const taskData = playerTasksStatus[taskId];
@@ -531,7 +1336,14 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
 
             if (tasksGeneratedCount > 0) {
                 toastr.success(`AI成功生成了 ${tasksGeneratedCount} 个新任务!`);
-                await saveAllTaskData();
+                await saveAllTaskData(false); // 保存数据，但不刷新UI
+                refreshQuestPopupUI(); // 手动刷新UI
+                // 刷新后，重新打开并滚动到任务抽屉
+                const taskDrawer = $(`#${QUEST_POPUP_ID} .generator-drawer:has(h4:contains("生成任务"))`);
+                if (taskDrawer.length && !taskDrawer.hasClass('open')) {
+                    taskDrawer.addClass('open');
+                }
+                taskDrawer[0]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             } else {
                 toastr.error("AI返回的任务格式不正确，无法解析。");
             }
@@ -540,6 +1352,85 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             toastr.error(`AI任务生成失败: ${error.message}`);
         } finally {
             const finalButton = $(`#${QUEST_POPUP_ID} #trigger-ai-task-generation`);
+            if (finalButton.length) {
+                finalButton.prop('disabled', false).html(originalButtonHtml);
+            }
+        }
+    }
+
+    async function generateAndAddNewItem() {
+        if (!checkAPIs()) return;
+        const genButton = $(`#${QUEST_POPUP_ID} #trigger-ai-item-generation`);
+        const originalButtonHtml = genButton.html();
+        genButton.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> AI锻造中...');
+
+        try {
+            const lastMessageId = TavernHelper.getLastMessageId();
+            const startMessageId = Math.max(0, lastMessageId - 4);
+            const messages = await TavernHelper.getChatMessages(`${startMessageId}-${lastMessageId}`, { include_swipes: false });
+            const chatHistoryString = messages.length > 0 ? messages.map(m => `${escapeHtml(m.name)}: ${escapeHtml(m.message)}`).join('\n') : "无最近聊天记录。";
+
+            let worldInfoString = "未加载相关的世界设定信息。";
+            const primaryLorebookName = await TavernHelper.getCurrentCharPrimaryLorebook();
+            if (primaryLorebookName) {
+                const lorebookEntries = await TavernHelper.getLorebookEntries(primaryLorebookName);
+                if (lorebookEntries.length > 0) {
+                    worldInfoString = lorebookEntries.filter(e => e.enabled && e.content).slice(0, 5).map(e => `条目: ${e.comment}\n内容: ${e.content}`).join('\n\n');
+                }
+            }
+
+            const itemPromptSuffix = `
+每个物品必须严格遵循以下格式，且每个字段各占一行：
+NAME: [物品的中文名称]
+DESCRIPTION: [对物品的中文描述]
+EFFECT: [物品的中文效果描述]
+
+现在请生成7到8个物品的列表。`;
+
+            const finalUserPrompt = PROMPT_PREFIX_TEMPLATE.replace('{chatHistory}', chatHistoryString).replace('{worldInfo}', worldInfoString)
+                                  + currentUserModifiedItemPromptCore
+                                  + itemPromptSuffix;
+
+            const generatedText = await TavernHelper.generateRaw({
+                ordered_prompts: [{ role: 'user', content: finalUserPrompt }],
+                max_new_tokens: 2048
+            });
+
+            const itemBlocksRegex = /^\s*NAME:\s*(.*?)\s*DESCRIPTION:\s*(.*?)\s*EFFECT:\s*(.*?)(?=\n\s*NAME:|$)/gims;
+            let match;
+            let itemsGeneratedCount = 0;
+            while ((match = itemBlocksRegex.exec(generatedText)) !== null) {
+                const newItem = {
+                    id: 'ai_item_' + Date.now() + '_' + itemsGeneratedCount,
+                    name: match[1].trim(),
+                    description: match[2].trim(),
+                    effect: match[3].trim(),
+                    isAIGenerated: true
+                };
+                if (!definedItems.some(i => i.name === newItem.name)) {
+                    definedItems.push(newItem);
+                    itemsGeneratedCount++;
+                }
+            }
+
+            if (itemsGeneratedCount > 0) {
+                toastr.success(`AI成功生成了 ${itemsGeneratedCount} 个新物品!`);
+                await saveAllTaskData(false); // 保存数据，但不刷新UI
+                refreshQuestPopupUI(); // 手动刷新UI
+                // 刷新后，重新打开并滚动到物品抽屉
+                const itemDrawer = $(`#${QUEST_POPUP_ID} .generator-drawer:has(h4:contains("生成物品"))`);
+                if (itemDrawer.length && !itemDrawer.hasClass('open')) {
+                    itemDrawer.addClass('open');
+                }
+                itemDrawer[0]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            } else {
+                toastr.error("AI返回的物品格式不正确，无法解析。");
+            }
+        } catch (error) {
+            console.error('[QuestSystem] Error generating AI item:', error);
+            toastr.error(`AI物品生成失败: ${error.message}`);
+        } finally {
+            const finalButton = $(`#${QUEST_POPUP_ID} #trigger-ai-item-generation`);
             if (finalButton.length) {
                 finalButton.prop('disabled', false).html(originalButtonHtml);
             }
@@ -666,17 +1557,50 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
         let html = `<div id="${QUEST_POPUP_ID}" class="quest-popup-container">`;
         html += `<button class="quest-popup-close-button">&times;</button>`;
         html += `<div class="quest-popup-body">`;
-
-        // AI Section
-        html += `<div class="quest-section ai-generator">
-            <h3><i class="fas fa-magic"></i> AI 任务生成器</h3>
-            <p class="quest-description">点击生成AI任务，或先编辑核心指令以定制任务。</p>
-            <div class="quest-actions">
-                <button id="trigger-ai-task-generation" class="quest-button"><i class="fas fa-magic"></i> 生成AI任务</button>
-                <button id="edit-ai-prompt-button" class="quest-button edit-prompt"><i class="fas fa-edit"></i> 编辑指令</button>
+    
+        // --- Generator Sections ---
+    
+        // Section 1: Generate Task (collapsible)
+        html += `
+        <div class="inline-drawer generator-drawer">
+            <div class="inline-drawer-toggle generator-drawer-toggle">
+                <div class="inline-drawer-header">
+                    <i class="fa-solid fa-scroll"></i>
+                    <h4>生成任务</h4>
+                </div>
+                <div class="inline-drawer-icon fa-solid fa-angle-down down"></div>
             </div>
-        </div>`;
+            <div class="inline-drawer-content generator-drawer-content">
+                <div class="quest-section ai-generator">
+                    <p class="quest-description">点击生成AI任务，或先编辑核心指令以定制任务。</p>
+                    <div class="quest-actions">
+                        <button id="trigger-ai-task-generation" class="quest-button"><i class="fas fa-magic"></i> 生成AI任务</button>
+                        <button id="edit-ai-prompt-button" class="quest-button edit-prompt"><i class="fas fa-edit"></i> 编辑指令</button>
+                    </div>
+                </div>
+                <div class="quest-section available-quests">
+                    <div class="quest-section-header">
+                        <h5><i class="fas fa-clipboard-list"></i> 可接任务</h5>
+                        ${definedTasks.filter(task => !playerTasksStatus[task.id]).length > 0 ? '<button id="delete-all-available-quests" class="quest-button delete-all-button"><i class="fas fa-trash"></i> 全部删除</button>' : ''}
+                    </div>`;
+        const availableTasks = definedTasks.filter(task => !playerTasksStatus[task.id]);
+        if (availableTasks.length > 0) {
+            availableTasks.forEach(task => {
+                html += `<div class="quest-item" data-task-id="${task.id}">
+                    <h4 class="quest-title">${escapeHtml(task.title)} <i class="fas fa-robot" title="AI生成"></i></h4>
+                    <p class="quest-description">${escapeHtml(task.description)}</p>
+                    <p class="quest-reward"><b>奖励:</b> ${escapeHtml(task.rewardMessage)}</p>
+                    <div class="quest-actions">
+                         <button class="quest-button accept" data-action="accept" data-task-id="${task.id}"><i class="fas fa-plus"></i> 接受</button>
+                         <button class="quest-button delete" data-action="delete-available" data-task-id="${task.id}"><i class="fas fa-trash"></i> 删除</button>
+                         <button class="quest-button edit" data-action="edit" data-task-id="${task.id}"><i class="fas fa-edit"></i> 编辑</button>
+                    </div>
+                </div>`;
+            });
+        } else { html += `<p class="no-tasks">暂无新任务，请尝试AI生成。</p>`; }
+        html += `</div>`; // close available-quests
 
+        // --- Log Sections within the Task Drawer ---
         // Active Quests
         const activeTasks = Object.entries(playerTasksStatus).filter(([_, data]) => data.status === 'active');
         html += `<div class="quest-section active-quests"><h3><i class="fas fa-hourglass-half"></i> 当前任务</h3>`;
@@ -695,29 +1619,6 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             });
         } else { html += `<p class="no-tasks">无进行中的任务。</p>`; }
         html += `</div>`;
-
-        // Available Quests
-        const availableTasks = definedTasks.filter(task => !playerTasksStatus[task.id]);
-        html += `<div class="quest-section available-quests">
-            <div class="quest-section-header">
-                <h3><i class="fas fa-clipboard-list"></i> 可接任务</h3>
-                ${availableTasks.length > 0 ? '<button id="delete-all-available-quests" class="quest-button delete-all-button"><i class="fas fa-trash"></i> 全部删除</button>' : ''}
-            </div>`;
-        if (availableTasks.length > 0) {
-            availableTasks.forEach(task => {
-                html += `<div class="quest-item" data-task-id="${task.id}">
-                    <h4 class="quest-title">${escapeHtml(task.title)} <i class="fas fa-robot" title="AI生成"></i></h4>
-                    <p class="quest-description">${escapeHtml(task.description)}</p>
-                    <p class="quest-reward"><b>奖励:</b> ${escapeHtml(task.rewardMessage)}</p>
-                    <div class="quest-actions">
-                         <button class="quest-button accept" data-action="accept" data-task-id="${task.id}"><i class="fas fa-plus"></i> 接受</button>
-                         <button class="quest-button delete" data-action="delete-available" data-task-id="${task.id}"><i class="fas fa-trash"></i> 删除</button>
-                         <button class="quest-button edit" data-action="edit" data-task-id="${task.id}"><i class="fas fa-edit"></i> 编辑</button>
-                    </div>
-                </div>`;
-            });
-        } else { html += `<p class="no-tasks">暂无新任务，请尝试AI生成。</p>`; }
-        html += `</div>`;
         
         // Completed Quests
         const completedTasks = Object.entries(playerTasksStatus).filter(([_, data]) => data.status === 'completed');
@@ -732,14 +1633,201 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
         } else { html += `<p class="no-tasks">尚未完成任何任务。</p>`; }
         html += `</div>`;
 
+        html += `</div></div>`; // close content, drawer
+    
+        // Section 2: Generate Item (collapsible)
+        html += `
+        <div class="inline-drawer generator-drawer">
+            <div class="inline-drawer-toggle generator-drawer-toggle">
+                <div class="inline-drawer-header">
+                    <i class="fa-solid fa-box-archive"></i>
+                    <h4>生成物品</h4>
+                </div>
+                <div class="inline-drawer-icon fa-solid fa-angle-down down"></div>
+            </div>
+            <div class="inline-drawer-content generator-drawer-content">
+                <div class="quest-section ai-generator">
+                    <p class="quest-description">点击生成AI物品，或先编辑核心指令以定制物品。</p>
+                    <div class="quest-actions">
+                        <button id="trigger-ai-item-generation" class="quest-button"><i class="fas fa-magic"></i> 生成AI物品</button>
+                        <button id="edit-ai-item-prompt-button" class="quest-button edit-prompt"><i class="fas fa-edit"></i> 编辑指令</button>
+                    </div>
+                </div>
+                <div class="quest-section available-items">
+                    <div class="quest-section-header">
+                        <h5><i class="fas fa-gem"></i> 可用物品</h5>
+                        ${definedItems.length > 0 ? '<button id="delete-all-available-items" class="quest-button delete-all-button"><i class="fas fa-trash"></i> 全部删除</button>' : ''}
+                    </div>`;
+        if (definedItems.length > 0) {
+            definedItems.forEach(item => {
+                html += `<div class="quest-item" data-item-id="${item.id}">
+                    <h4 class="quest-title">${escapeHtml(item.name)} <i class="fas fa-robot" title="AI生成"></i></h4>
+                    <p class="quest-description">${escapeHtml(item.description)}</p>
+                    <p class="quest-reward"><b>效果:</b> ${escapeHtml(item.effect)}</p>
+                    <div class="quest-actions">
+                         <button class="quest-button accept" data-action="add-item" data-item-id="${item.id}"><i class="fas fa-plus"></i> 注入酒馆</button>
+                         <button class="quest-button delete" data-action="delete-available-item" data-item-id="${item.id}"><i class="fas fa-trash"></i> 删除</button>
+                         <button class="quest-button edit" data-action="edit-item" data-item-id="${item.id}"><i class="fas fa-edit"></i> 编辑</button>
+                    </div>
+                </div>`;
+            });
+        } else { html += `<p class="no-tasks">暂无新物品，请尝试AI生成。</p>`; }
+        html += `</div>`; // close available-items
+
+        // --- Player's Current Items ---
+        const currentItems = Object.entries(playerItems);
+        html += `<div class="quest-section current-items"><h3><i class="fas fa-briefcase"></i> 当前物品</h3>`;
+        if (currentItems.length > 0) {
+            currentItems.forEach(([id, item]) => {
+                html += `<div class="quest-item" data-item-id="${id}">
+                    <h4 class="quest-title">${escapeHtml(item.name)} ${item.isAIGenerated ? '<i class="fas fa-robot" title="AI生成"></i>' : ''}</h4>
+                    <p class="quest-description">${escapeHtml(item.description)}</p>
+                    <p class="quest-reward"><b>效果:</b> ${escapeHtml(item.effect)}</p>
+                    <div class="quest-actions">
+                        <button class="quest-button inject" data-action="add-item" data-item-id="${id}" data-is-player-item="true"><i class="fas fa-syringe"></i> 再次注入</button>
+                        <button class="quest-button delete" data-action="delete-player-item" data-item-id="${id}"><i class="fas fa-trash"></i> 删除</button>
+                        <button class="quest-button edit" data-action="edit-item" data-item-id="${id}" data-is-player-item="true"><i class="fas fa-edit"></i> 编辑</button>
+                    </div>
+                </div>`;
+            });
+        } else { html += `<p class="no-tasks">无持有的物品。</p>`; }
+        html += `</div>`;
+
+        html += `</div></div>`; // close content, drawer
+    
+        // Section 3: Generate Character (collapsible)
+        html += `
+        <div class="inline-drawer generator-drawer">
+            <div class="inline-drawer-toggle generator-drawer-toggle">
+                <div class="inline-drawer-header">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <h4>生成人物</h4>
+                </div>
+                <div class="inline-drawer-icon fa-solid fa-angle-down down"></div>
+            </div>
+            <div class="inline-drawer-content generator-drawer-content">
+                <div class="quest-section ai-generator">
+                    <p class="quest-description">点击生成AI人物，或先编辑核心指令以定制人物。</p>
+                    <div class="quest-actions">
+                        <button id="trigger-ai-char-generation" class="quest-button"><i class="fas fa-magic"></i> 生成AI人物</button>
+                        <button id="edit-ai-char-prompt-button" class="quest-button edit-prompt"><i class="fas fa-edit"></i> 编辑指令</button>
+                    </div>
+                </div>
+                <div class="quest-section available-chars">
+                    <div class="quest-section-header">
+                        <h5><i class="fas fa-users"></i> 可用人物</h5>
+                        ${definedChars.length > 0 ? '<button id="delete-all-available-chars" class="quest-button delete-all-button"><i class="fas fa-trash"></i> 全部删除</button>' : ''}
+                    </div>`;
+        if (definedChars.length > 0) {
+            definedChars.forEach(char => {
+                html += `<div class="quest-item" data-char-id="${char.id}">
+                    <h4 class="quest-title">${escapeHtml(char.name)} <i class="fas fa-robot" title="AI生成"></i></h4>
+                    <p class="quest-description"><b>描述:</b> ${escapeHtml(char.description)}</p>
+                    <p class="quest-description"><b>性格:</b> ${escapeHtml(char.personality)}</p>
+                    <p class="quest-reward"><b>背景:</b> ${escapeHtml(char.background)}</p>
+                    <div class="quest-actions">
+                         <button class="quest-button accept" data-action="add-char" data-char-id="${char.id}"><i class="fas fa-plus"></i> 注入酒馆</button>
+                         <button class="quest-button delete" data-action="delete-available-char" data-char-id="${char.id}"><i class="fas fa-trash"></i> 删除</button>
+                         <button class="quest-button edit" data-action="edit-char" data-char-id="${char.id}"><i class="fas fa-edit"></i> 编辑</button>
+                    </div>
+                </div>`;
+            });
+        } else { html += `<p class="no-tasks">暂无新人物，请尝试AI生成。</p>`; }
+        html += `</div>`; // close available-chars
+
+        // --- Player's Current Characters ---
+        const currentChars = Object.entries(playerChars);
+        html += `<div class="quest-section current-chars"><h3><i class="fas fa-address-book"></i> 当前人物</h3>`;
+        if (currentChars.length > 0) {
+            currentChars.forEach(([id, char]) => {
+                html += `<div class="quest-item" data-char-id="${id}">
+                    <h4 class="quest-title">${escapeHtml(char.name)} ${char.isAIGenerated ? '<i class="fas fa-robot" title="AI生成"></i>' : ''}</h4>
+                    <p class="quest-description"><b>描述:</b> ${escapeHtml(char.description)}</p>
+                    <p class="quest-description"><b>性格:</b> ${escapeHtml(char.personality)}</p>
+                    <p class="quest-reward"><b>背景:</b> ${escapeHtml(char.background)}</p>
+                    <div class="quest-actions">
+                        <button class="quest-button inject" data-action="add-char" data-char-id="${id}" data-is-player-char="true"><i class="fas fa-syringe"></i> 再次注入</button>
+                        <button class="quest-button delete" data-action="delete-player-char" data-char-id="${id}"><i class="fas fa-trash"></i> 删除</button>
+                        <button class="quest-button edit" data-action="edit-char" data-char-id="${id}" data-is-player-char="true"><i class="fas fa-edit"></i> 编辑</button>
+                    </div>
+                </div>`;
+            });
+        } else { html += `<p class="no-tasks">无持有的人物。</p>`; }
+        html += `</div>`;
+
+        html += `</div></div>`; // close content, drawer
+    
+        // Section 4: Generate Plot (collapsible)
+        html += `
+        <div class="inline-drawer generator-drawer">
+            <div class="inline-drawer-toggle generator-drawer-toggle">
+                <div class="inline-drawer-header">
+                    <i class="fa-solid fa-feather-pointed"></i>
+                    <h4>生成剧情</h4>
+                </div>
+                <div class="inline-drawer-icon fa-solid fa-angle-down down"></div>
+            </div>
+            <div class="inline-drawer-content generator-drawer-content">
+                <div class="quest-section ai-generator">
+                    <p class="quest-description">点击生成AI剧情，或先编辑核心指令以定制剧情。</p>
+                    <div class="quest-actions">
+                        <button id="trigger-ai-plot-generation" class="quest-button"><i class="fas fa-magic"></i> 生成AI剧情</button>
+                        <button id="edit-ai-plot-prompt-button" class="quest-button edit-prompt"><i class="fas fa-edit"></i> 编辑指令</button>
+                    </div>
+                </div>
+                <div class="quest-section available-plots">
+                    <div class="quest-section-header">
+                        <h5><i class="fas fa-book-open"></i> 可用剧情</h5>
+                        ${definedPlots.length > 0 ? '<button id="delete-all-available-plots" class="quest-button delete-all-button"><i class="fas fa-trash"></i> 全部删除</button>' : ''}
+                    </div>`;
+        if (definedPlots.length > 0) {
+            definedPlots.forEach(plot => {
+                html += `<div class="quest-item" data-plot-id="${plot.id}">
+                    <h4 class="quest-title">${escapeHtml(plot.title)} <i class="fas fa-robot" title="AI生成"></i></h4>
+                    <p class="quest-description">${escapeHtml(plot.description)}</p>
+                    <div class="quest-actions">
+                         <button class="quest-button accept" data-action="add-plot" data-plot-id="${plot.id}"><i class="fas fa-plus"></i> 注入酒馆</button>
+                         <button class="quest-button delete" data-action="delete-available-plot" data-plot-id="${plot.id}"><i class="fas fa-trash"></i> 删除</button>
+                         <button class="quest-button edit" data-action="edit-plot" data-plot-id="${plot.id}"><i class="fas fa-edit"></i> 编辑</button>
+                    </div>
+                </div>`;
+            });
+        } else { html += `<p class="no-tasks">暂无新剧情，请尝试AI生成。</p>`; }
+        html += `</div>`; // close available-plots
+
+        // --- Player's Current Plots ---
+        const currentPlots = Object.entries(playerPlots);
+        html += `<div class="quest-section current-plots"><h3><i class="fas fa-book"></i> 当前剧情</h3>`;
+        if (currentPlots.length > 0) {
+            currentPlots.forEach(([id, plot]) => {
+                html += `<div class="quest-item" data-plot-id="${id}">
+                    <h4 class="quest-title">${escapeHtml(plot.title)} ${plot.isAIGenerated ? '<i class="fas fa-robot" title="AI生成"></i>' : ''}</h4>
+                    <p class="quest-description">${escapeHtml(plot.description)}</p>
+                    <div class="quest-actions">
+                        <button class="quest-button inject" data-action="add-plot" data-plot-id="${id}" data-is-player-plot="true"><i class="fas fa-syringe"></i> 再次注入</button>
+                        <button class="quest-button delete" data-action="delete-player-plot" data-plot-id="${id}"><i class="fas fa-trash"></i> 删除</button>
+                        <button class="quest-button edit" data-action="edit-plot" data-plot-id="${id}" data-is-player-plot="true"><i class="fas fa-edit"></i> 编辑</button>
+                    </div>
+                </div>`;
+            });
+        } else { html += `<p class="no-tasks">无进行的剧情。</p>`; }
+        html += `</div>`;
+
+        html += `</div></div>`; // close content, drawer
+    
         html += `</div></div>`;
         return html;
     }
     
     function bindQuestPopupEvents(popupContent$) {
-        popupContent$.off('.questSystem').on('click.questSystem', '.quest-button, .quest-popup-close-button', async function(event) {
+        popupContent$.off('.questSystem').on('click.questSystem', '.quest-button, .quest-popup-close-button, .generator-drawer-toggle', async function(event) {
             event.stopPropagation();
             const button = $(this);
+
+            if (button.hasClass('generator-drawer-toggle')) {
+                button.closest('.generator-drawer').toggleClass('open');
+                return;
+            }
 
             if (button.hasClass('quest-popup-close-button')) {
                 closeQuestLogPopup();
@@ -749,58 +1837,151 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
             const buttonId = button.attr('id');
             const action = button.data('action');
             const taskId = button.data('task-id');
+            const itemId = button.data('item-id');
+            const charId = button.data('char-id');
+            const plotId = button.data('plot-id');
+            const isPlayerItem = button.data('is-player-item');
+            const isPlayerChar = button.data('is-player-char');
+            const isPlayerPlot = button.data('is-player-plot');
 
+            // Generators
             if (buttonId === 'trigger-ai-task-generation') await generateAndAddNewAiTask();
-            if (buttonId === 'edit-ai-prompt-button') showPromptEditorPopup();
-            if (buttonId === 'delete-all-available-quests') {
-                await deleteAllAvailableTasks();
+            if (buttonId === 'edit-ai-prompt-button') showPromptEditorPopup('task');
+            if (buttonId === 'trigger-ai-item-generation') await generateAndAddNewItem();
+            if (buttonId === 'edit-ai-item-prompt-button') showPromptEditorPopup('item');
+            if (buttonId === 'trigger-ai-char-generation') await generateAndAddNewChar();
+            if (buttonId === 'edit-ai-char-prompt-button') showPromptEditorPopup('char');
+            if (buttonId === 'trigger-ai-plot-generation') await generateAndAddNewPlot();
+            if (buttonId === 'edit-ai-plot-prompt-button') showPromptEditorPopup('plot');
+
+            // Task Actions
+            if (buttonId === 'delete-all-available-quests') await deleteAllAvailableTasks();
+            if (action === 'accept' && taskId) await acceptTask(taskId);
+            if (action === 'abandon' && taskId) await abandonTask(taskId);
+            if (action === 'complete' && taskId) await completeTask(taskId);
+            if (action === 'delete-available' && taskId) await deleteAvailableTask(taskId);
+            if (action === 'edit' && taskId) toggleEditMode(taskId);
+            if (action === 'save' && taskId) {
+                const questItem = $(`.quest-item[data-task-id="${taskId}"]`);
+                const newTitle = questItem.find('.edit-title').val();
+                const newDescription = questItem.find('.edit-description').val();
+                const newReward = questItem.find('.edit-reward').val();
+                await saveTaskChanges(taskId, newTitle, newDescription, newReward);
             }
 
-            if (action && taskId) {
-                if (action === 'accept') await acceptTask(taskId);
-                if (action === 'abandon') await abandonTask(taskId);
-                if (action === 'complete') await completeTask(taskId);
-                if (action === 'delete-available') await deleteAvailableTask(taskId);
-                if (action === 'edit') toggleEditMode(taskId);
-                if (action === 'save') {
-                    const questItem = $(`.quest-item[data-task-id="${taskId}"]`);
-                    const newTitle = questItem.find('.edit-title').val();
-                    const newDescription = questItem.find('.edit-description').val();
-                    const newReward = questItem.find('.edit-reward').val();
-                    await saveTaskChanges(taskId, newTitle, newDescription, newReward);
-                }
+            // Item Actions
+            if (buttonId === 'delete-all-available-items') await deleteAllAvailableItems();
+            if (action === 'add-item' && itemId) await addItemToTavern(itemId, isPlayerItem);
+            if (action === 'delete-available-item' && itemId) await deleteAvailableItem(itemId);
+            if (action === 'delete-player-item' && itemId) await deletePlayerItem(itemId);
+            if (action === 'edit-item' && itemId) toggleEditModeForItem(itemId, isPlayerItem);
+            if (action === 'save-item' && itemId) {
+                const itemElement = $(`.quest-item[data-item-id="${itemId}"]`);
+                const newName = itemElement.find('.edit-name').val();
+                const newDescription = itemElement.find('.edit-description').val();
+                const newEffect = itemElement.find('.edit-effect').val();
+                await saveItemChanges(itemId, newName, newDescription, newEffect, isPlayerItem);
+            }
+
+            // Character Actions
+            if (buttonId === 'delete-all-available-chars') await deleteAllAvailableChars();
+            if (action === 'add-char' && charId) await addCharToTavern(charId, isPlayerChar);
+            if (action === 'delete-available-char' && charId) await deleteAvailableChar(charId);
+            if (action === 'delete-player-char' && charId) await deletePlayerChar(charId);
+            if (action === 'edit-char' && charId) toggleEditModeForChar(charId, isPlayerChar);
+            if (action === 'save-char' && charId) {
+                const charElement = $(`.quest-item[data-char-id="${charId}"]`);
+                const newName = charElement.find('.edit-name').val();
+                const newDescription = charElement.find('.edit-description').val();
+                const newPersonality = charElement.find('.edit-personality').val();
+                const newBackground = charElement.find('.edit-background').val();
+                await saveCharChanges(charId, newName, newDescription, newPersonality, newBackground, isPlayerChar);
+            }
+
+            // Plot Actions
+            if (buttonId === 'delete-all-available-plots') await deleteAllAvailablePlots();
+            if (action === 'add-plot' && plotId) await addPlotToTavern(plotId, isPlayerPlot);
+            if (action === 'delete-available-plot' && plotId) await deleteAvailablePlot(plotId);
+            if (action === 'delete-player-plot' && plotId) await deletePlayerPlot(plotId);
+            if (action === 'edit-plot' && plotId) toggleEditModeForPlot(plotId, isPlayerPlot);
+            if (action === 'save-plot' && plotId) {
+                const plotElement = $(`.quest-item[data-plot-id="${plotId}"]`);
+                const newTitle = plotElement.find('.edit-title').val();
+                const newDescription = plotElement.find('.edit-description').val();
+                await savePlotChanges(plotId, newTitle, newDescription, isPlayerPlot);
             }
         });
     }
 
-    function showPromptEditorPopup() {
+    function showPromptEditorPopup(type = 'task') {
+        let title, description, currentPrompt, defaultPrompt;
+
+        if (type === 'item') {
+            title = "AI物品生成核心指令编辑器";
+            description = "您正在编辑AI生成物品的<b>核心指令</b>部分。";
+            currentPrompt = currentUserModifiedItemPromptCore;
+            defaultPrompt = DEFAULT_ITEM_PROMPT_CORE_CN;
+        } else if (type === 'char') {
+            title = "AI人物生成核心指令编辑器";
+            description = "您正在编辑AI生成人物的<b>核心指令</b>部分。";
+            currentPrompt = currentUserModifiedCharPromptCore;
+            defaultPrompt = DEFAULT_CHAR_PROMPT_CORE_CN;
+        } else if (type === 'plot') {
+            title = "AI剧情生成核心指令编辑器";
+            description = "您正在编辑AI生成剧情的<b>核心指令</b>部分。";
+            currentPrompt = currentUserModifiedPlotPromptCore;
+            defaultPrompt = DEFAULT_PLOT_PROMPT_CORE_CN;
+        } else { // Default to task
+            title = "AI任务生成核心指令编辑器";
+            description = "您正在编辑AI生成任务的<b>核心指令</b>部分。";
+            currentPrompt = currentUserModifiedEditablePromptCore;
+            defaultPrompt = DEFAULT_EDITABLE_PROMPT_CORE_CN;
+        }
+
         const editorHtml = `<div id="${PROMPT_EDITOR_POPUP_ID}" style="display: flex; flex-direction: column; gap: 15px; padding:15px; background-color: #2e2e34; color: #f0f0f0;">
-            <h3>AI任务生成核心指令编辑器</h3>
-            <p>您正在编辑AI生成任务的<b>核心指令</b>部分。</p>
-            <textarea id="ai-prompt-editor-textarea" style="width: 98%; min-height: 200px; background-color: #25252a; color: #f0f0f0;">${escapeHtml(currentUserModifiedEditablePromptCore)}</textarea>
+            <h3>${title}</h3>
+            <p>${description}</p>
+            <textarea id="ai-prompt-editor-textarea" style="width: 98%; min-height: 200px; background-color: #25252a; color: #f0f0f0;">${escapeHtml(currentPrompt)}</textarea>
             <div style="text-align: right;">
                 <button id="restore-default-prompt-button" class="menu_button" style="margin-right: 10px;">恢复默认</button>
                 <button id="save-custom-prompt-button" class="menu_button" style="background-color: #28a745;">保存</button>
             </div>
         </div>`;
 
-        SillyTavern.getContext().callGenericPopup(editorHtml, SillyTavern.getContext().POPUP_TYPE.DISPLAY, "编辑AI任务核心指令", { wide: true, large: true });
+        SillyTavern.getContext().callGenericPopup(editorHtml, SillyTavern.getContext().POPUP_TYPE.DISPLAY, title, { wide: true, large: true });
         
         setTimeout(() => {
             const popupInstance = $(`#${PROMPT_EDITOR_POPUP_ID}`).closest('dialog[open]');
             if (!popupInstance.length) return;
 
             popupInstance.find('#save-custom-prompt-button').on('click.questEditor', async function() {
-                currentUserModifiedEditablePromptCore = popupInstance.find('#ai-prompt-editor-textarea').val();
-                await saveAllTaskData(false); // Save all data including the new prompt
+                const newPrompt = popupInstance.find('#ai-prompt-editor-textarea').val();
+                if (type === 'item') {
+                    currentUserModifiedItemPromptCore = newPrompt;
+                } else if (type === 'char') {
+                    currentUserModifiedCharPromptCore = newPrompt;
+                } else if (type === 'plot') {
+                    currentUserModifiedPlotPromptCore = newPrompt;
+                } else {
+                    currentUserModifiedEditablePromptCore = newPrompt;
+                }
+                await saveAllTaskData(false);
                 toastr.success("核心指令已为当前角色保存！");
                 popupInstance.find('.popup_close').trigger('click');
             });
 
             popupInstance.find('#restore-default-prompt-button').on('click.questEditor', async function() {
-                currentUserModifiedEditablePromptCore = DEFAULT_EDITABLE_PROMPT_CORE_CN;
-                popupInstance.find('#ai-prompt-editor-textarea').val(DEFAULT_EDITABLE_PROMPT_CORE_CN);
-                await saveAllTaskData(false); // Save all data including the default prompt
+                if (type === 'item') {
+                    currentUserModifiedItemPromptCore = defaultPrompt;
+                } else if (type === 'char') {
+                    currentUserModifiedCharPromptCore = defaultPrompt;
+                } else if (type === 'plot') {
+                    currentUserModifiedPlotPromptCore = defaultPrompt;
+                } else {
+                    currentUserModifiedEditablePromptCore = defaultPrompt;
+                }
+                popupInstance.find('#ai-prompt-editor-textarea').val(defaultPrompt);
+                await saveAllTaskData(false);
                 toastr.info("核心指令已为当前角色恢复为默认设置。");
             });
         }, 300);

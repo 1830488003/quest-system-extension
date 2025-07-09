@@ -1,8 +1,8 @@
 {
-  "display_name": "任务系统",
+  "display_name": "万能生成插件",
   "author": "萧然 & Gemini & Cline",
-  "version": "2.4.0",
-  "description": "一个集成的任务日志系统，支持AI动态生成任务、判断完成情况，并为每个角色提供独立的、持久化的任务存储。",
+  "version": "3.0.0",
+  "description": "一个集成了任务、物品、人物和剧情生成的通用插件。",
   "loading_order": 1002,
   "js": "index.js",
   "css": "style.css",
