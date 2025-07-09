@@ -308,6 +308,35 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
         toastr.info(`任务已放弃: ${abandonedTask.title}`);
     }
 
+    async function deleteAvailableTask(taskId) {
+        if (!checkAPIs()) return;
+        const taskIndex = definedTasks.findIndex(t => t.id === taskId);
+        if (taskIndex === -1) {
+            toastr.error(`任务 ${taskId} 未在可接列表中找到！`);
+            return;
+        }
+        
+        const taskDef = definedTasks[taskIndex];
+        definedTasks.splice(taskIndex, 1); 
+        
+        await saveAllTaskData();
+        toastr.info(`已删除可接任务: ${taskDef.title}`);
+    }
+
+    async function deleteAllAvailableTasks() {
+        if (!checkAPIs()) return;
+        if (definedTasks.length === 0) {
+            toastr.info("没有可删除的任务。");
+            return;
+        }
+        
+        const count = definedTasks.length;
+        definedTasks.length = 0; // Clear array
+        
+        await saveAllTaskData();
+        toastr.success(`已成功删除 ${count} 个可接任务。`);
+    }
+
     async function completeTask(taskId) {
         if (!checkAPIs()) return;
         const taskData = playerTasksStatus[taskId];
@@ -574,7 +603,11 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
 
         // Available Quests
         const availableTasks = definedTasks.filter(task => !playerTasksStatus[task.id]);
-        html += `<div class="quest-section available-quests"><h3><i class="fas fa-clipboard-list"></i> 可接任务</h3>`;
+        html += `<div class="quest-section available-quests">
+            <div class="quest-section-header">
+                <h3><i class="fas fa-clipboard-list"></i> 可接任务</h3>
+                ${availableTasks.length > 0 ? '<button id="delete-all-available-quests" class="quest-button delete-all-button"><i class="fas fa-trash"></i> 全部删除</button>' : ''}
+            </div>`;
         if (availableTasks.length > 0) {
             availableTasks.forEach(task => {
                 html += `<div class="quest-item" data-task-id="${task.id}">
@@ -582,6 +615,7 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
                     <p class="quest-description">${escapeHtml(task.description)}</p>
                     <div class="quest-actions">
                          <button class="quest-button accept" data-action="accept" data-task-id="${task.id}"><i class="fas fa-plus"></i> 接受</button>
+                         <button class="quest-button delete" data-action="delete-available" data-task-id="${task.id}"><i class="fas fa-trash"></i> 删除</button>
                     </div>
                 </div>`;
             });
@@ -621,11 +655,15 @@ REWARD: 经验值150点，[古代魔法残页]x1，老约翰的好感度提升5�
 
             if (buttonId === 'trigger-ai-task-generation') await generateAndAddNewAiTask();
             if (buttonId === 'edit-ai-prompt-button') showPromptEditorPopup();
+            if (buttonId === 'delete-all-available-quests') {
+                await deleteAllAvailableTasks();
+            }
 
             if (action && taskId) {
                  if (action === 'accept') await acceptTask(taskId);
                  if (action === 'abandon') await abandonTask(taskId);
                  if (action === 'complete') await completeTask(taskId);
+                 if (action === 'delete-available') await deleteAvailableTask(taskId);
             }
         });
     }

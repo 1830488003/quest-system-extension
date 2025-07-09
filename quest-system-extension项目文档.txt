@@ -1,5 +1,44 @@
 # 任务系统扩展项目文档
 
+## 2025年7月9日
+
+### 任务：为可接任务列表添加删除功能
+
+**问题描述：**
+用户反馈，在“可接任务”列表中，由AI生成的任务一旦出现，就无法被移除，除非接受后再放弃。这使得任务列表会变得冗长且难以管理。需要为每个可接任务添加一个独立的“删除”按钮，并在列表标题处增加一个“全部删除”的快捷操作。
+
+**根本原因分析：**
+现有的系统逻辑只包含了任务的“接受”、“放弃”和“完成”流程，完全没有提供直接从“可接任务”列表（`definedTasks` 数组）中移除任务的接口。UI层面也自然没有相应的按钮。
+
+**修复方案与实施步骤：**
+
+为了实现此功能，我对JavaScript逻辑和UI生成代码进行了同步更新：
+
+1.  **添加核心删除逻辑 (`index.js`)**:
+    *   我创建了 `deleteAvailableTask(taskId)` 函数。此函数通过任务ID在 `definedTasks` 数组中找到对应的任务，使用 `splice` 方法将其移除，然后调用 `saveAllTaskData()` 持久化更改。
+    *   我创建了 `deleteAllAvailableTasks()` 函数。此函数直接将 `definedTasks` 数组的长度设置为0，一次性清空所有可接任务，并同样调用 `saveAllTaskData()` 保存结果。
+
+2.  **更新UI生成代码 (`createQuestPopupHtml` in `index.js`)**:
+    *   在“可接任务”的区块中，我将原有的 `<h3>` 标题包裹在一个新的 `.quest-section-header` div中。这个新的头部容器使用Flexbox布局，可以在标题旁边轻松地添加按钮。
+    *   我添加了一个条件渲染的“全部删除”按钮 (`#delete-all-available-quests`)。该按钮仅在 `availableTasks` 数组长度大于0时才会显示。
+    *   在每个可接任务卡片的 `.quest-actions` div中，除了原有的“接受”按钮外，我还新增了一个红色的“删除”按钮，其 `data-action` 设置为 `delete-available`。
+
+3.  **绑定事件监听器 (`bindQuestPopupEvents` in `index.js`)**:
+    *   我扩展了事件委托的逻辑，使其能够响应新的 `data-action` 和按钮ID。
+    *   当检测到 `data-action` 为 `delete-available` 时，调用 `deleteAvailableTask(taskId)`。
+    *   当检测到按钮ID为 `delete-all-available-quests` 时，调用 `deleteAllAvailableTasks()`。
+
+4.  **添加支持性CSS样式 (`style.css`)**:
+    *   我为 `.quest-section-header` 添加了样式，使用 `justify-content: space-between` 来确保标题和“全部删除”按钮分别位于容器的两端。
+    *   我为新的删除按钮 (`.quest-button.delete` 和 `.quest-button.delete-all-button`) 添加了样式，使其背景色为醒目的红色 (`--danger-color`)，与“放弃”按钮的黄色形成区分，明确传达了其破坏性操作的意图。
+
+**最终结果：**
+通过以上修改，可接任务列表现在具备了完整的管理功能。用户既可以逐个精确删除不需要的任务，也可以一键清空整个列表，大大提升了任务管理的灵活性和用户体验。
+
+---
+
+# 任务系统扩展项目文档
+
 ## 2025年6月11日
 
 ### 任务：为浮动按钮添加移动端触摸拖动功能

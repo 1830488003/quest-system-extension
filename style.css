@@ -105,6 +105,20 @@
     gap: 8px;
 }
 
+.quest-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+.quest-section-header h3 {
+    border-bottom: none;
+    padding-bottom: 0;
+    margin: 0;
+}
+
 /* --- 任务条目样式 --- */
 .quest-item {
     border-bottom: 1px solid var(--border-color);
@@ -178,6 +192,7 @@
 .quest-button.accept { background-color: var(--primary-accent-color); }
 .quest-button.complete { background-color: var(--success-color); }
 .quest-button.abandon { background-color: var(--warning-color); color: var(--section-bg-color); }
+.quest-button.delete, .quest-button.delete-all-button { background-color: var(--danger-color); }
 .quest-button.edit-prompt { background-color: transparent; border: 1px solid var(--primary-accent-color); }
 
 .quest-button:disabled {
