@@ -1,24 +1,24 @@
 {
-  "name": "sillytavern-quest-system-extension",
-  "version": "1.4.0",
-  "description": "A quest system extension for SillyTavern.",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/1830488003/quest-system-extension.git"
-  },
-  "keywords": [
-    "sillytavern",
-    "extension",
-    "quest"
-  ],
-  "author": "1830488003",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/1830488003/quest-system-extension/issues"
-  },
-  "homepage": "https://github.com/1830488003/quest-system-extension#readme"
+    "name": "sillytavern-quest-system-extension",
+    "version": "1.4.0",
+    "description": "A quest system extension for SillyTavern.",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/1830488003/quest-system-extension.git"
+    },
+    "keywords": [
+        "sillytavern",
+        "extension",
+        "quest"
+    ],
+    "author": "1830488003",
+    "license": "ISC",
+    "bugs": {
+        "url": "https://github.com/1830488003/quest-system-extension/issues"
+    },
+    "homepage": "https://github.com/1830488003/quest-system-extension#readme"
 }

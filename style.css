@@ -12,7 +12,7 @@
     --border-color: #40444b;
     --font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
     --border-radius: 8px;
-    --box-shadow: 0 8px 16px rgba(0,0,0,0.25);
+    --box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
 }
 
 /* --- 弹窗容器与布局 --- */
@@ -24,18 +24,18 @@
     width: 90vw;
     max-width: 1000px;
     max-height: 90vh; /* Allow a bit more height */
-    
+
     background-color: var(--main-bg-color);
     color: var(--text-color);
     font-family: var(--font-family);
-    
+
     display: flex;
     flex-direction: column;
-    
+
     border-radius: var(--border-radius);
     box-shadow: var(--box-shadow);
     border: 1px solid var(--border-color);
-    
+
     /* overflow: hidden; */ /* This was preventing the body from scrolling, so it's removed. */
 }
 
@@ -60,10 +60,11 @@
     color: var(--text-color);
 }
 
-.quest-popup-header, .quest-popup-footer {
+.quest-popup-header,
+.quest-popup-footer {
     flex-shrink: 0;
     padding: 16px;
-    background-color: rgba(0,0,0,0.1);
+    background-color: rgba(0, 0, 0, 0.1);
 }
 
 .quest-popup-header {
@@ -80,9 +81,13 @@
 }
 
 /* 隐藏滚动条但保留功能 */
-.quest-popup-body::-webkit-scrollbar { display: none; }
-.quest-popup-body { -ms-overflow-style: none; scrollbar-width: none; }
-
+.quest-popup-body::-webkit-scrollbar {
+    display: none;
+}
+.quest-popup-body {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
 
 /* --- 区块样式 --- */
 .quest-section {
@@ -211,7 +216,9 @@
     cursor: pointer;
     font-size: 0.9em;
     font-weight: 500;
-    transition: background-color 0.2s, transform 0.1s;
+    transition:
+        background-color 0.2s,
+        transform 0.1s;
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -225,13 +232,30 @@
     transform: scale(0.98);
 }
 
-.quest-button.accept { background-color: var(--primary-accent-color); }
-.quest-button.complete { background-color: var(--success-color); }
-.quest-button.abandon { background-color: var(--warning-color); color: var(--section-bg-color); }
-.quest-button.delete, .quest-button.delete-all-button { background-color: var(--danger-color); }
-.quest-button.edit-prompt { background-color: transparent; border: 1px solid var(--primary-accent-color); }
-.quest-button.edit { background-color: #6a7480; } /* A neutral grey for edit */
-.quest-button.save { background-color: var(--success-color); }
+.quest-button.accept {
+    background-color: var(--primary-accent-color);
+}
+.quest-button.complete {
+    background-color: var(--success-color);
+}
+.quest-button.abandon {
+    background-color: var(--warning-color);
+    color: var(--section-bg-color);
+}
+.quest-button.delete,
+.quest-button.delete-all-button {
+    background-color: var(--danger-color);
+}
+.quest-button.edit-prompt {
+    background-color: transparent;
+    border: 1px solid var(--primary-accent-color);
+}
+.quest-button.edit {
+    background-color: #6a7480;
+} /* A neutral grey for edit */
+.quest-button.save {
+    background-color: var(--success-color);
+}
 
 .quest-button:disabled {
     background-color: #555;
@@ -246,7 +270,6 @@
     font-style: italic;
 }
 
-
 /* --- 桌面端响应式布局 --- */
 @media (min-width: 768px) {
     .quest-popup-container {
@@ -257,7 +280,10 @@
         width: 60vw; /* You can use a more specific width for desktop */
     }
     .quest-popup-body {
-        grid-template-columns: repeat(2, 1fr); /* Two columns on larger screens */
+        grid-template-columns: repeat(
+            2,
+            1fr
+        ); /* Two columns on larger screens */
         grid-template-rows: auto 1fr; /* Let top row be auto, bottom row take remaining space */
     }
 
@@ -277,15 +303,16 @@
         grid-column: 2 / 3;
         grid-row: 2;
     }
-     .quest-section.completed-quests {
+    .quest-section.completed-quests {
         grid-column: 1 / -1; /* Span full width */
         grid-row: 3;
     }
 }
 
-
 /* --- 遗留/兼容性样式 --- */
-.hidden { display: none !important; }
+.hidden {
+    display: none !important;
+}
 
 /* 任务日志入口按钮 */
 #quest-log-entry-button {
@@ -301,19 +328,24 @@
     justify-content: center;
     color: var(--primary-accent-color);
     font-size: 24px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.3), 
-                inset 0 2px 2px rgba(255,255,255,0.05),
-                0 0 0 1px rgba(0,0,0,0.5);
-    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, color 0.2s ease-out;
+    box-shadow:
+        0 4px 8px rgba(0, 0, 0, 0.3),
+        inset 0 2px 2px rgba(255, 255, 255, 0.05),
+        0 0 0 1px rgba(0, 0, 0, 0.5);
+    transition:
+        transform 0.2s ease-out,
+        box-shadow 0.2s ease-out,
+        color 0.2s ease-out;
     /* Remove initial position from CSS, will be set by JS */
 }
 
 #quest-log-entry-button:hover {
     transform: scale(1.1);
     color: var(--primary-accent-hover-color);
-    box-shadow: 0 6px 12px rgba(0,0,0,0.4), 
-                inset 0 2px 3px rgba(255,255,255,0.08),
-                0 0 10px var(--primary-accent-color); /* Glow effect */
+    box-shadow:
+        0 6px 12px rgba(0, 0, 0, 0.4),
+        inset 0 2px 3px rgba(255, 255, 255, 0.08),
+        0 0 10px var(--primary-accent-color); /* Glow effect */
 }
 
 #quest-log-entry-button:active {
@@ -330,7 +362,8 @@
 }
 
 /* --- 设置面板内的项目样式 --- */
-.quest-system-settings-panel, .quest-system-version-panel {
+.quest-system-settings-panel,
+.quest-system-version-panel {
     display: flex;
     flex-direction: column;
     gap: 15px;
@@ -348,7 +381,8 @@
     align-items: center;
 }
 
-.quest-setting-item label, .quest-system-version-panel p {
+.quest-setting-item label,
+.quest-system-version-panel p {
     color: var(--text-muted-color);
     margin: 0;
 }
